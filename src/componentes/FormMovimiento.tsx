@@ -66,6 +66,9 @@ export function FormMovimiento({ movimiento, origenInicial, tipoInicial, onCerra
   const [fecha, setFecha] = useState(movimiento?.fecha ?? hoy())
   const [monto, setMonto] = useState(movimiento ? String(Math.abs(movimiento.monto)) : '')
   const [costo, setCosto] = useState(movimiento?.costo != null ? String(movimiento.costo) : '')
+  const [retorno, setRetorno] = useState(
+    movimiento?.retornoEsperado != null ? String(movimiento.retornoEsperado) : '',
+  )
   const [concepto, setConcepto] = useState(movimiento?.concepto ?? '')
   const [categoria, setCategoria] = useState(movimiento?.categoria ?? '')
   const [nota, setNota] = useState(movimiento?.nota ?? '')
@@ -84,6 +87,9 @@ export function FormMovimiento({ movimiento, origenInicial, tipoInicial, onCerra
 
   const montoNum = aNumero(monto)
   const costoNum = aNumero(costo)
+  const retornoNum = aNumero(retorno)
+  const gananciaEsperada = retornoNum - montoNum
+  const margenEsperado = retornoNum > 0 ? (gananciaEsperada / retornoNum) * 100 : null
   const gananciaPreview = montoNum - costoNum
   const margenPreview = montoNum > 0 ? (gananciaPreview / montoNum) * 100 : null
   const deltaAjuste = aNumero(saldoReal) - cajaActual
@@ -93,6 +99,7 @@ export function FormMovimiento({ movimiento, origenInicial, tipoInicial, onCerra
   function limpiar() {
     setMonto('')
     setCosto('')
+    setRetorno('')
     setConcepto('')
     setNota('')
     setSaldoReal('')
@@ -129,6 +136,8 @@ export function FormMovimiento({ movimiento, origenInicial, tipoInicial, onCerra
       fecha,
       monto: tipo === 'ajuste' ? deltaAjuste : montoNum,
       costo: tipo === 'venta' && costo.trim() !== '' ? costoNum : undefined,
+      retornoEsperado:
+        tipo === 'gasto' && catInventario && retorno.trim() !== '' ? retornoNum : undefined,
       concepto: concepto.trim() || textoPorDefecto(tipo),
       categoria: tipo === 'gasto' || tipo === 'retiro' ? categoria || undefined : undefined,
       nota: nota.trim() || undefined,
@@ -347,6 +356,39 @@ export function FormMovimiento({ movimiento, origenInicial, tipoInicial, onCerra
             </span>
           )}
         </div>
+      )}
+
+      {tipo === 'gasto' && catInventario && (
+        <>
+          <div className="campo">
+            <label htmlFor="mov-retorno">¿En cuanto esperas venderlo? (opcional)</label>
+            <div className="entrada-monto">
+              <input
+                id="mov-retorno"
+                type="text"
+                inputMode="decimal"
+                placeholder="0.00"
+                value={retorno}
+                onChange={(e) => setRetorno(e.target.value)}
+              />
+            </div>
+            <span className="ayuda">
+              Con esto la app puede decirte cuanta ganancia sigue guardada en la mercancia que aun
+              no vendes, y avisarte si terminas vendiendo mas barato de lo que planeabas.
+            </span>
+          </div>
+
+          {montoNum > 0 && retorno.trim() !== '' && (
+            <div className="aviso-caja">
+              Si se vende completo ganas{' '}
+              <b className={gananciaEsperada >= 0 ? 'pos' : 'neg'}>{dinero(gananciaEsperada)}</b> ·
+              margen esperado <b>{porcentaje(margenEsperado)}</b>
+              {margenEsperado !== null && margenEsperado < db.config.margenObjetivo && (
+                <span className="neg"> · debajo de tu objetivo de {db.config.margenObjetivo}%</span>
+              )}
+            </div>
+          )}
+        </>
       )}
 
       <div className="campo">

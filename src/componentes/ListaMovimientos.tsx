@@ -125,6 +125,9 @@ export function ListaMovimientos({
                       deja {dinero(ganancia, 0)}
                     </span>
                   )}
+                  {m.tipo === 'gasto' && m.retornoEsperado != null && m.retornoEsperado > 0 && (
+                    <span className="pos">esperas {dinero(m.retornoEsperado, 0)}</span>
+                  )}
                   {m.nota && <span title={m.nota}>📝</span>}
                 </div>
               </div>

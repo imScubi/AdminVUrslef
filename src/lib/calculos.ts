@@ -47,6 +47,10 @@ export interface Estadisticas {
   gastosOperativos: number
   /** Dinero puesto en mercancia/insumos (no es perdida: se vuelve inventario). */
   comprasInventario: number
+  /** De esas compras, cuanto corresponde a las que declararon retorno esperado. */
+  comprasConEstimacion: number
+  /** Suma de lo que esperas recibir al vender esas compras. */
+  retornoEsperado: number
   gastosTotales: number
   /** gananciaBruta - gastosOperativos. La ganancia de verdad. */
   gananciaNeta: number
@@ -63,6 +67,14 @@ export interface Estadisticas {
   patrimonio: number
   margen: number | null
   margenNeto: number | null
+  /** Cuantas veces esperas multiplicar cada peso puesto en mercancia. */
+  factorEsperado: number | null
+  /** Margen que esperabas sacarle a la mercancia, para contrastar con el real. */
+  margenEsperado: number | null
+  /** Lo que esperas recibir por la mercancia que todavia no vendes. */
+  valorEsperadoInventario: number | null
+  /** Ganancia que sigue guardada en esa mercancia. */
+  gananciaEsperadaPendiente: number | null
   ticketPromedio: number | null
   /** Ganancia por cada peso que metiste en costos y gastos. */
   rendimientoPorPeso: number | null
@@ -76,10 +88,13 @@ export interface Estadisticas {
 
 const CERO: Estadisticas = {
   ventas: 0, numVentas: 0, costoVendido: 0, gananciaBruta: 0,
-  gastosOperativos: 0, comprasInventario: 0, gastosTotales: 0, gananciaNeta: 0,
+  gastosOperativos: 0, comprasInventario: 0, comprasConEstimacion: 0, retornoEsperado: 0,
+  gastosTotales: 0, gananciaNeta: 0,
   aportes: 0, retiros: 0, entradas: 0, salidas: 0, ajustes: 0,
   caja: 0, inventario: 0, patrimonio: 0,
-  margen: null, margenNeto: null, ticketPromedio: null, rendimientoPorPeso: null,
+  margen: null, margenNeto: null, factorEsperado: null, margenEsperado: null,
+  valorEsperadoInventario: null, gananciaEsperadaPendiente: null,
+  ticketPromedio: null, rendimientoPorPeso: null,
   roi: null, recuperado: null, ultimaVenta: null, diasSinVender: null,
 }
 
@@ -107,8 +122,15 @@ export function calcular(
         break
       }
       case 'gasto': {
-        if (esInventario(m, categorias)) e.comprasInventario += m.monto
-        else e.gastosOperativos += m.monto
+        if (esInventario(m, categorias)) {
+          e.comprasInventario += m.monto
+          if (m.retornoEsperado != null && m.retornoEsperado > 0) {
+            e.comprasConEstimacion += m.monto
+            e.retornoEsperado += m.retornoEsperado
+          }
+        } else {
+          e.gastosOperativos += m.monto
+        }
         break
       }
       case 'aporte':
@@ -136,6 +158,23 @@ export function calcular(
     e.ventas + e.aportes + e.entradas + e.ajustes - e.gastosTotales - e.retiros - e.salidas
   e.inventario = e.comprasInventario - e.costoVendido
   e.patrimonio = e.caja + Math.max(e.inventario, 0)
+
+  /*
+   * Lo esperado se proyecta con un factor, no con una resta: si compraste
+   * $7,000 esperando $12,000, cada peso de mercancia vale 1.71 al venderse.
+   * Ese factor se aplica a lo que queda sin vender, asi el pronostico baja
+   * solo conforme vas vendiendo, sin tener que llevar cuenta pieza por pieza.
+   */
+  e.factorEsperado =
+    e.comprasConEstimacion > 0 ? e.retornoEsperado / e.comprasConEstimacion : null
+  e.margenEsperado =
+    e.retornoEsperado > 0
+      ? ((e.retornoEsperado - e.comprasConEstimacion) / e.retornoEsperado) * 100
+      : null
+  if (e.factorEsperado !== null && e.inventario > 0) {
+    e.valorEsperadoInventario = e.inventario * e.factorEsperado
+    e.gananciaEsperadaPendiente = e.valorEsperadoInventario - e.inventario
+  }
 
   e.margen = e.ventas > 0 ? (e.gananciaBruta / e.ventas) * 100 : null
   e.margenNeto = e.ventas > 0 ? (e.gananciaNeta / e.ventas) * 100 : null
@@ -424,6 +463,21 @@ export function generarAlertas(db: BaseDatos): Alerta[] {
           origenId: origen.id,
         })
       }
+    }
+
+    if (
+      total.margenEsperado !== null &&
+      total.margen !== null &&
+      total.numVentas >= 3 &&
+      total.margen < total.margenEsperado - 10
+    ) {
+      alertas.push({
+        id: `esperado-${origen.id}`,
+        nivel: 'aviso',
+        titulo: `Estas vendiendo mas barato de lo que planeaste en ${origen.nombre}`,
+        detalle: `Al comprar la mercancia esperabas ${total.margenEsperado.toFixed(0)}% de margen y vas en ${total.margen.toFixed(0)}%. Revisa si estas rematando o si el costo subio.`,
+        origenId: origen.id,
+      })
     }
 
     if (periodo.retiros > 0 && periodo.retiros > periodo.gananciaNeta) {

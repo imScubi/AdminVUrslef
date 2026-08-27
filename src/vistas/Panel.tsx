@@ -83,9 +83,13 @@ export function Panel({
           etiqueta="Valor total"
           valor={dinero(total.patrimonio)}
           pie={
-            total.inventario > 0.5
-              ? `Incluye ${dineroCorto(total.inventario)} en mercancia`
-              : 'Caja + mercancia sin vender'
+            total.gananciaEsperadaPendiente !== null && total.gananciaEsperadaPendiente > 0.5
+              ? `Incluye ${dineroCorto(total.inventario)} en mercancia, con ${dineroCorto(
+                  total.gananciaEsperadaPendiente,
+                )} de ganancia esperada`
+              : total.inventario > 0.5
+                ? `Incluye ${dineroCorto(total.inventario)} en mercancia`
+                : 'Caja + mercancia sin vender'
           }
           ayuda="Caja + el costo de la mercancia que aun no vendes. Es lo que valen tus negocios ahora."
         />

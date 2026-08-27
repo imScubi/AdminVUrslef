@@ -133,11 +133,15 @@ export function DetalleOrigen({
             etiqueta="Mercancia sin vender"
             valor={dinero(Math.max(total.inventario, 0))}
             pie={
-              total.inventario > 0.5
-                ? 'Dinero tuyo parado en inventario'
-                : 'Sin mercancia pendiente registrada'
+              total.valorEsperadoInventario !== null
+                ? `Esperas ~${dineroCorto(total.valorEsperadoInventario)} al venderla · ${dineroCorto(
+                    total.gananciaEsperadaPendiente ?? 0,
+                  )} de ganancia`
+                : total.inventario > 0.5
+                  ? 'Dinero tuyo parado en inventario'
+                  : 'Sin mercancia pendiente registrada'
             }
-            ayuda="Lo que compraste como mercancia menos el costo de lo que ya vendiste."
+            ayuda="Lo que compraste como mercancia menos el costo de lo que ya vendiste. Si al comprar anotas en cuanto esperas venderla, aqui se proyecta cuanto deberia regresarte."
           />
           <Metrica
             etiqueta="Valor del origen"
@@ -249,7 +253,24 @@ export function DetalleOrigen({
                 : `Margen neto ${porcentaje(periodo.margenNeto, 0)}`
             }
           />
-          <Metrica mediana etiqueta="Ticket promedio" valor={dinero(periodo.ticketPromedio ?? 0)} />
+          {total.margenEsperado !== null ? (
+            <Metrica
+              mediana
+              etiqueta="Margen: real vs esperado"
+              valor={`${porcentaje(periodo.margen, 0)} / ${porcentaje(total.margenEsperado, 0)}`}
+              tono={
+                periodo.margen !== null && periodo.margen >= total.margenEsperado ? 'pos' : 'neg'
+              }
+              pie={
+                periodo.margen !== null && periodo.margen >= total.margenEsperado
+                  ? 'Vas por encima de lo que planeaste'
+                  : 'Estas vendiendo mas barato de lo planeado'
+              }
+              ayuda="El primero es el margen que llevas de verdad; el segundo, el que esperabas cuando compraste la mercancia."
+            />
+          ) : (
+            <Metrica mediana etiqueta="Ticket promedio" valor={dinero(periodo.ticketPromedio ?? 0)} />
+          )}
           <Metrica mediana etiqueta="Retiros" valor={dinero(periodo.retiros)} />
           <Metrica mediana etiqueta="Aportes" valor={dinero(periodo.aportes)} />
           <Metrica

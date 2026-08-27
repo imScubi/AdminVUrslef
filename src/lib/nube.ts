@@ -60,6 +60,7 @@ interface FilaMovimiento {
   fecha: string
   monto: number | string
   costo: number | string | null
+  retorno_esperado: number | string | null
   concepto: string
   categoria: string | null
   nota: string | null
@@ -121,6 +122,7 @@ function aFilaMovimiento(m: Movimiento, usuarioId: string): FilaMovimiento {
     fecha: m.fecha,
     monto: m.monto,
     costo: m.costo ?? null,
+    retorno_esperado: m.retornoEsperado ?? null,
     concepto: m.concepto,
     categoria: m.categoria ?? null,
     nota: m.nota ?? null,
@@ -139,6 +141,10 @@ function deFilaMovimiento(f: FilaMovimiento): Movimiento {
     fecha: f.fecha,
     monto: Number(f.monto) || 0,
     costo: f.costo === null ? undefined : Number(f.costo),
+    retornoEsperado:
+      f.retorno_esperado === null || f.retorno_esperado === undefined
+        ? undefined
+        : Number(f.retorno_esperado),
     concepto: f.concepto ?? '',
     categoria: f.categoria ?? undefined,
     nota: f.nota ?? undefined,

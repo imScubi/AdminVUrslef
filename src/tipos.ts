@@ -66,6 +66,12 @@ export interface Movimiento extends Sellado {
   monto: number
   /** Solo venta: cuanto te costo a ti lo que vendiste. Sirve para el margen. */
   costo?: number
+  /**
+   * Solo gastos de mercancia: en cuanto esperas vender lo que compraste.
+   * Con esto se puede estimar cuanta ganancia sigue guardada en el inventario
+   * y comparar despues lo que planeaste contra lo que realmente pasó.
+   */
+  retornoEsperado?: number
   concepto: string
   /** Id de categoria (gastos y retiros). */
   categoria?: string

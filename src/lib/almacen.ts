@@ -112,6 +112,10 @@ export function normalizar(entrada: unknown): BaseDatos {
         fecha: m.fecha ?? ahora.slice(0, 10),
         monto: Number(m.monto) || 0,
         costo: m.costo === undefined || m.costo === null ? undefined : Number(m.costo) || 0,
+        retornoEsperado:
+          m.retornoEsperado === undefined || m.retornoEsperado === null
+            ? undefined
+            : Number(m.retornoEsperado) || 0,
         concepto: m.concepto ?? '',
         categoria: m.categoria,
         nota: m.nota,

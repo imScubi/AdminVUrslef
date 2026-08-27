@@ -65,6 +65,13 @@ tratan como pérdida: ese dinero se guarda como inventario. Cuando registras una
 costo, el inventario baja. Por eso puedes tener poca caja y aun así ir ganando — el dinero está en
 producto, no perdido. La app te lo dice explícitamente cuando pasa.
 
+**Retorno esperado.** Al registrar una compra de mercancía puedes anotar en cuánto esperas
+venderla. De ahí sale un factor (compraste $7,000 esperando $12,000 → cada peso de mercancía vale
+1.71 al venderse) que se aplica a lo que **queda** sin vender, así el pronóstico baja solo conforme
+vendes, sin llevar cuenta pieza por pieza. Con eso la app te dice cuánta ganancia sigue guardada en
+el inventario, y compara el margen que planeaste contra el que llevas de verdad — si vendes bastante
+más barato de lo previsto, te avisa.
+
 **Ganancia bruta y margen.** Ventas − costo de lo vendido. El margen es eso como porcentaje de la
 venta: mide qué tan buen negocio es cada venta por sí sola.
 
