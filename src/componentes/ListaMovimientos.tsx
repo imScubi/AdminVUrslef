@@ -120,6 +120,11 @@ export function ListaMovimientos({
                   )}
                   {destino && <span>→ {destino.nombre}</span>}
                   {cat && <span className="pill">{cat.nombre}</span>}
+                  {m.pedidoId && (
+                    <span className="pill acento">
+                      {m.folio ? `abono #${String(m.folio).padStart(4, '0')}` : 'abono'}
+                    </span>
+                  )}
                   {ganancia !== null && (
                     <span className={ganancia >= 0 ? 'pos' : 'neg'}>
                       deja {dinero(ganancia, 0)}

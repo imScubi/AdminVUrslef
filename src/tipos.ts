@@ -27,6 +27,10 @@ export interface Origen extends Sellado {
   tipo: TipoOrigen
   color: string
   emoji: string
+  /** Logo del negocio (data URI). Sale impreso en los recibos. */
+  logo?: string
+  /** Telefono o redes que aparecen al pie del recibo. */
+  contacto?: string
   /** Objetivo de ganancia neta mensual. 0 = sin meta. */
   metaMensual: number
   notas: string
@@ -75,6 +79,15 @@ export interface Movimiento extends Sellado {
   concepto: string
   /** Id de categoria (gastos y retiros). */
   categoria?: string
+  /**
+   * Si este movimiento es el abono de un pedido, cual. Varios abonos del mismo
+   * pedido cuentan como UNA venta para el ticket promedio.
+   */
+  pedidoId?: string
+  /** Como te pagaron este abono. */
+  metodo?: MetodoPago
+  /** Folio consecutivo del recibo dentro del origen. */
+  folio?: number
   nota?: string
   creadoEn: string
 }
@@ -89,6 +102,55 @@ export interface Categoria extends Sellado {
    * cuando vendes. Por eso no se resta dos veces de la ganancia.
    */
   inventario?: boolean
+}
+
+/**
+ * Pedido: una venta que puede pagarse en partes.
+ *
+ * - venta       se paga y se entrega en el momento
+ * - separacion  el cliente aparta y va abonando hasta liquidar
+ * - pedido      se encarga, se pide anticipo y se paga al entregar
+ *
+ * El dinero no vive aqui: cada abono es un Movimiento de tipo venta con
+ * `pedidoId`. Este registro solo guarda a quien, que y cuanto se acordo.
+ */
+export type TipoPedido = 'venta' | 'separacion' | 'pedido'
+export type EstadoPedido = 'abierto' | 'liquidado' | 'cancelado'
+export type MetodoPago = 'efectivo' | 'transferencia' | 'tarjeta' | 'deposito' | 'otro'
+
+export interface Pedido extends Sellado {
+  id: string
+  origenId: string
+  tipo: TipoPedido
+  cliente: string
+  telefono: string
+  /** Que lleva el cliente, en texto libre. */
+  concepto: string
+  total: number
+  fecha: string
+  estado: EstadoPedido
+  notas: string
+  creadoEn: string
+}
+
+export const ETIQUETA_TIPO_PEDIDO: Record<TipoPedido, string> = {
+  venta: 'Venta',
+  separacion: 'Separacion',
+  pedido: 'Pedido',
+}
+
+export const ETIQUETA_ESTADO_PEDIDO: Record<EstadoPedido, string> = {
+  abierto: 'Abierto',
+  liquidado: 'Liquidado',
+  cancelado: 'Cancelado',
+}
+
+export const ETIQUETA_METODO: Record<MetodoPago, string> = {
+  efectivo: 'Efectivo',
+  transferencia: 'Transferencia',
+  tarjeta: 'Tarjeta',
+  deposito: 'Deposito',
+  otro: 'Otro',
 }
 
 export interface Config {
@@ -108,6 +170,7 @@ export interface BaseDatos {
   configActualizadaEn: string
   origenes: Origen[]
   movimientos: Movimiento[]
+  pedidos: Pedido[]
   categorias: Categoria[]
   config: Config
 }

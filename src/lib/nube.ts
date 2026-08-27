@@ -1,5 +1,16 @@
 import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js'
-import type { BaseDatos, Categoria, Movimiento, Origen, TipoMovimiento, TipoOrigen } from '../tipos'
+import type {
+  BaseDatos,
+  Categoria,
+  EstadoPedido,
+  MetodoPago,
+  Movimiento,
+  Origen,
+  Pedido,
+  TipoMovimiento,
+  TipoOrigen,
+  TipoPedido,
+} from '../tipos'
 
 /*
  * Estas dos constantes son PUBLICAS por diseno: viajan dentro del JavaScript
@@ -45,6 +56,8 @@ interface FilaOrigen {
   emoji: string
   meta_mensual: number | string
   notas: string
+  logo: string | null
+  contacto: string | null
   archivado: boolean
   creado_en: string
   actualizado_en: string
@@ -64,6 +77,26 @@ interface FilaMovimiento {
   concepto: string
   categoria: string | null
   nota: string | null
+  pedido_id: string | null
+  metodo: string | null
+  folio: number | null
+  creado_en: string
+  actualizado_en: string
+  borrado: boolean
+}
+
+interface FilaPedido {
+  id: string
+  usuario_id: string
+  origen_id: string
+  tipo: string
+  cliente: string
+  telefono: string
+  concepto: string
+  total: number | string
+  fecha: string
+  estado: string
+  notas: string
   creado_en: string
   actualizado_en: string
   borrado: boolean
@@ -89,6 +122,8 @@ function aFilaOrigen(o: Origen, usuarioId: string): FilaOrigen {
     emoji: o.emoji,
     meta_mensual: o.metaMensual,
     notas: o.notas,
+    logo: o.logo ?? null,
+    contacto: o.contacto ?? null,
     archivado: o.archivado,
     creado_en: o.creadoEn,
     actualizado_en: o.actualizadoEn,
@@ -105,6 +140,8 @@ function deFilaOrigen(f: FilaOrigen): Origen {
     emoji: f.emoji,
     metaMensual: Number(f.meta_mensual) || 0,
     notas: f.notas ?? '',
+    ...(f.logo ? { logo: f.logo } : {}),
+    ...(f.contacto ? { contacto: f.contacto } : {}),
     archivado: Boolean(f.archivado),
     creadoEn: f.creado_en,
     actualizadoEn: f.actualizado_en,
@@ -126,6 +163,9 @@ function aFilaMovimiento(m: Movimiento, usuarioId: string): FilaMovimiento {
     concepto: m.concepto,
     categoria: m.categoria ?? null,
     nota: m.nota ?? null,
+    pedido_id: m.pedidoId ?? null,
+    metodo: m.metodo ?? null,
+    folio: m.folio ?? null,
     creado_en: m.creadoEn,
     actualizado_en: m.actualizadoEn,
     borrado: Boolean(m.borrado),
@@ -148,6 +188,46 @@ function deFilaMovimiento(f: FilaMovimiento): Movimiento {
     concepto: f.concepto ?? '',
     categoria: f.categoria ?? undefined,
     nota: f.nota ?? undefined,
+    pedidoId: f.pedido_id ?? undefined,
+    metodo: (f.metodo as MetodoPago) ?? undefined,
+    folio: f.folio ?? undefined,
+    creadoEn: f.creado_en,
+    actualizadoEn: f.actualizado_en,
+    borrado: Boolean(f.borrado),
+  }
+}
+
+function aFilaPedido(p: Pedido, usuarioId: string): FilaPedido {
+  return {
+    id: p.id,
+    usuario_id: usuarioId,
+    origen_id: p.origenId,
+    tipo: p.tipo,
+    cliente: p.cliente,
+    telefono: p.telefono,
+    concepto: p.concepto,
+    total: p.total,
+    fecha: p.fecha,
+    estado: p.estado,
+    notas: p.notas,
+    creado_en: p.creadoEn,
+    actualizado_en: p.actualizadoEn,
+    borrado: Boolean(p.borrado),
+  }
+}
+
+function deFilaPedido(f: FilaPedido): Pedido {
+  return {
+    id: f.id,
+    origenId: f.origen_id,
+    tipo: f.tipo as TipoPedido,
+    cliente: f.cliente ?? '',
+    telefono: f.telefono ?? '',
+    concepto: f.concepto ?? '',
+    total: Number(f.total) || 0,
+    fecha: f.fecha,
+    estado: f.estado as EstadoPedido,
+    notas: f.notas ?? '',
     creadoEn: f.creado_en,
     actualizadoEn: f.actualizado_en,
     borrado: Boolean(f.borrado),
@@ -224,6 +304,7 @@ export async function sincronizar(
   const origenesNuevos = db.origenes.filter((o) => o.actualizadoEn > corte)
   const categoriasNuevas = db.categorias.filter((c) => c.actualizadoEn > corte)
   const movimientosNuevos = db.movimientos.filter((m) => m.actualizadoEn > corte)
+  const pedidosNuevos = db.pedidos.filter((p) => p.actualizadoEn > corte)
 
   // Primero origenes y categorias: los movimientos apuntan a ellos.
   if (origenesNuevos.length) {
@@ -237,6 +318,13 @@ export async function sincronizar(
       .from('av_categorias')
       .upsert(categoriasNuevas.map((c) => aFilaCategoria(c, usuarioId)))
     if (error) throw new Error(`No se pudieron subir las categorias: ${error.message}`)
+  }
+  // Los pedidos van antes que los movimientos: los abonos apuntan a ellos.
+  if (pedidosNuevos.length) {
+    const { error } = await nube
+      .from('av_pedidos')
+      .upsert(pedidosNuevos.map((p) => aFilaPedido(p, usuarioId)))
+    if (error) throw new Error(`No se pudieron subir los pedidos: ${error.message}`)
   }
   for (let i = 0; i < movimientosNuevos.length; i += 400) {
     const lote = movimientosNuevos.slice(i, i + 400)
@@ -255,14 +343,15 @@ export async function sincronizar(
   }
 
   // ---- Bajar ----
-  const [resOrigenes, resCategorias, resMovimientos, resConfig] = await Promise.all([
+  const [resOrigenes, resCategorias, resMovimientos, resPedidos, resConfig] = await Promise.all([
     nube.from('av_origenes').select('*').gt('actualizado_en', corte),
     nube.from('av_categorias').select('*').gt('actualizado_en', corte),
     nube.from('av_movimientos').select('*').gt('actualizado_en', corte),
+    nube.from('av_pedidos').select('*').gt('actualizado_en', corte),
     nube.from('av_config').select('*').gt('actualizado_en', corte).maybeSingle(),
   ])
 
-  for (const res of [resOrigenes, resCategorias, resMovimientos]) {
+  for (const res of [resOrigenes, resCategorias, resMovimientos, resPedidos]) {
     if (res.error) throw new Error(`No se pudo bajar la informacion: ${res.error.message}`)
   }
   if (resConfig.error && resConfig.error.code !== 'PGRST116') {
@@ -272,6 +361,7 @@ export async function sincronizar(
   const origenesRemotos = (resOrigenes.data ?? []).map(deFilaOrigen)
   const categoriasRemotas = (resCategorias.data ?? []).map(deFilaCategoria)
   const movimientosRemotos = (resMovimientos.data ?? []).map(deFilaMovimiento)
+  const pedidosRemotos = (resPedidos.data ?? []).map(deFilaPedido)
 
   const configRemota = resConfig.data as
     | { datos: BaseDatos['config']; actualizado_en: string }
@@ -285,6 +375,7 @@ export async function sincronizar(
       origenes: mezclar(db.origenes, origenesRemotos),
       categorias: mezclar(db.categorias, categoriasRemotas),
       movimientos: mezclar(db.movimientos, movimientosRemotos),
+      pedidos: mezclar(db.pedidos, pedidosRemotos),
       config: usarConfigRemota ? { ...db.config, ...configRemota.datos } : db.config,
       configActualizadaEn: usarConfigRemota
         ? configRemota.actualizado_en
@@ -292,9 +383,15 @@ export async function sincronizar(
     },
     marca,
     subidas:
-      origenesNuevos.length + categoriasNuevas.length + movimientosNuevos.length,
+      origenesNuevos.length +
+      categoriasNuevas.length +
+      movimientosNuevos.length +
+      pedidosNuevos.length,
     bajadas:
-      origenesRemotos.length + categoriasRemotas.length + movimientosRemotos.length,
+      origenesRemotos.length +
+      categoriasRemotas.length +
+      movimientosRemotos.length +
+      pedidosRemotos.length,
   }
 }
 
@@ -305,6 +402,7 @@ export function contarPendientes(db: BaseDatos, desde: string): number {
     db.origenes.filter((o) => o.actualizadoEn > corte).length +
     db.categorias.filter((c) => c.actualizadoEn > corte).length +
     db.movimientos.filter((m) => m.actualizadoEn > corte).length +
+    db.pedidos.filter((p) => p.actualizadoEn > corte).length +
     (db.configActualizadaEn > corte ? 1 : 0)
   )
 }
@@ -312,7 +410,7 @@ export function contarPendientes(db: BaseDatos, desde: string): number {
 /** Borra de la nube todo lo del usuario (para "empezar de cero"). */
 export async function vaciarNube(usuarioId: string): Promise<void> {
   if (!nube) return
-  for (const tabla of ['av_movimientos', 'av_origenes', 'av_categorias']) {
+  for (const tabla of ['av_movimientos', 'av_pedidos', 'av_origenes', 'av_categorias']) {
     const { error } = await nube.from(tabla).delete().eq('usuario_id', usuarioId)
     if (error) throw new Error(`No se pudo limpiar ${tabla}: ${error.message}`)
   }

@@ -8,7 +8,8 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import type { BaseDatos, Categoria, Movimiento, Origen } from '../tipos'
+import type { BaseDatos, Categoria, MetodoPago, Movimiento, Origen, Pedido } from '../tipos'
+import { abonosDe, siguienteFolio } from '../lib/calculos'
 import {
   baseVacia,
   cargar,
@@ -67,6 +68,16 @@ interface ValorTienda {
   agregarMovimiento: (datos: DatosMovimiento) => Movimiento
   editarMovimiento: (id: string, cambios: Partial<Movimiento>) => void
   borrarMovimiento: (id: string) => void
+  agregarPedido: (datos: DatosPedido) => Pedido
+  editarPedido: (id: string, cambios: Partial<Pedido>) => void
+  borrarPedido: (id: string) => void
+  /**
+   * Crea el abono como entrada real de dinero en el origen del pedido.
+   * Recibe el pedido completo, no su id: al crear un pedido y su primer abono
+   * en la misma accion, el espejo del estado todavia no lo conoce y buscarlo
+   * por id devolvia nada, asi que el abono se perdia en silencio.
+   */
+  registrarAbono: (pedido: Pedido, datos: DatosAbono) => Movimiento
   agregarCategoria: (nombre: string, ambito: Categoria['ambito'], inventario?: boolean) => Categoria
   editarCategoria: (id: string, cambios: Partial<Categoria>) => void
   borrarCategoria: (id: string) => void
@@ -75,6 +86,13 @@ interface ValorTienda {
 
 type DatosOrigen = Omit<Origen, 'id' | 'creadoEn' | 'actualizadoEn' | 'borrado'>
 type DatosMovimiento = Omit<Movimiento, 'id' | 'creadoEn' | 'actualizadoEn' | 'borrado'>
+type DatosPedido = Omit<Pedido, 'id' | 'creadoEn' | 'actualizadoEn' | 'borrado'>
+interface DatosAbono {
+  monto: number
+  fecha: string
+  metodo: MetodoPago
+  nota?: string
+}
 
 const Contexto = createContext<ValorTienda | null>(null)
 
@@ -218,6 +236,7 @@ export function ProveedorTienda({ children }: { children: ReactNode }) {
         origenes: mezclar(prev.origenes, resultado.db.origenes),
         categorias: mezclar(prev.categorias, resultado.db.categorias),
         movimientos: mezclar(prev.movimientos, resultado.db.movimientos),
+        pedidos: mezclar(prev.pedidos, resultado.db.pedidos),
         config:
           resultado.db.configActualizadaEn > prev.configActualizadaEn
             ? resultado.db.config
@@ -410,6 +429,93 @@ export function ProveedorTienda({ children }: { children: ReactNode }) {
     [cambiar],
   )
 
+  /* ---- Pedidos ---- */
+
+  const agregarPedido = useCallback(
+    (datos: DatosPedido) => {
+      const pedido: Pedido = {
+        ...datos,
+        id: nuevoId(),
+        creadoEn: ahora(),
+        actualizadoEn: ahora(),
+      }
+      cambiar((prev) => ({ ...prev, pedidos: [...prev.pedidos, pedido] }))
+      return pedido
+    },
+    [cambiar],
+  )
+
+  const editarPedido = useCallback(
+    (id: string, cambios: Partial<Pedido>) => {
+      cambiar((prev) => ({
+        ...prev,
+        pedidos: prev.pedidos.map((p) =>
+          p.id === id ? { ...p, ...cambios, actualizadoEn: ahora() } : p,
+        ),
+      }))
+    },
+    [cambiar],
+  )
+
+  /** Se borra el pedido y tambien el dinero que entro por el. */
+  const borrarPedido = useCallback(
+    (id: string) => {
+      const sello = ahora()
+      cambiar((prev) => ({
+        ...prev,
+        pedidos: prev.pedidos.map((p) =>
+          p.id === id ? { ...p, borrado: true, actualizadoEn: sello } : p,
+        ),
+        movimientos: prev.movimientos.map((m) =>
+          m.pedidoId === id ? { ...m, borrado: true, actualizadoEn: sello } : m,
+        ),
+      }))
+    },
+    [cambiar],
+  )
+
+  /**
+   * Un abono no es papeleo: es dinero que entro. Por eso se guarda como un
+   * movimiento de venta en el origen del pedido, con su folio de recibo. Si
+   * con este abono se cubre el total, el pedido se marca liquidado solo.
+   */
+  const registrarAbono = useCallback(
+    (pedido: Pedido, datos: DatosAbono) => {
+      const sello = ahora()
+      const abono: Movimiento = {
+        id: nuevoId(),
+        tipo: 'venta',
+        origenId: pedido.origenId,
+        fecha: datos.fecha,
+        monto: datos.monto,
+        concepto: pedido.concepto.trim() || pedido.cliente.trim() || 'Pedido',
+        nota: datos.nota?.trim() || undefined,
+        pedidoId: pedido.id,
+        metodo: datos.metodo,
+        folio: siguienteFolio(dbRef.current, pedido.origenId),
+        creadoEn: sello,
+        actualizadoEn: sello,
+      }
+
+      cambiar((prev) => {
+        const yaAbonado = abonosDe(prev.movimientos, pedido.id).reduce((s, m) => s + m.monto, 0)
+        const cubierto = yaAbonado + datos.monto >= pedido.total - 0.005
+        return {
+          ...prev,
+          movimientos: [...prev.movimientos, abono],
+          pedidos:
+            cubierto && pedido.estado === 'abierto'
+              ? prev.pedidos.map((p) =>
+                  p.id === pedido.id ? { ...p, estado: 'liquidado', actualizadoEn: sello } : p,
+                )
+              : prev.pedidos,
+        }
+      })
+      return abono
+    },
+    [cambiar],
+  )
+
   const agregarCategoria = useCallback(
     (nombre: string, ambito: Categoria['ambito'], inventario?: boolean) => {
       const cat: Categoria = {
@@ -478,6 +584,7 @@ export function ProveedorTienda({ children }: { children: ReactNode }) {
         origenes: nueva.origenes.map((o) => ({ ...o, actualizadoEn: sello })),
         categorias: nueva.categorias.map((c) => ({ ...c, actualizadoEn: sello })),
         movimientos: nueva.movimientos.map((m) => ({ ...m, actualizadoEn: sello })),
+        pedidos: nueva.pedidos.map((p) => ({ ...p, actualizadoEn: sello })),
       }
       if (autoritativo && usuarioId && nube && navigator.onLine) {
         setSync((s) => ({ ...s, sincronizando: true }))
@@ -515,6 +622,7 @@ export function ProveedorTienda({ children }: { children: ReactNode }) {
       origenes: vivos(crudo.origenes),
       movimientos: vivos(crudo.movimientos),
       categorias: vivos(crudo.categorias),
+      pedidos: vivos(crudo.pedidos),
     }),
     [crudo],
   )
@@ -543,6 +651,10 @@ export function ProveedorTienda({ children }: { children: ReactNode }) {
       agregarMovimiento,
       editarMovimiento,
       borrarMovimiento,
+      agregarPedido,
+      editarPedido,
+      borrarPedido,
+      registrarAbono,
       agregarCategoria,
       editarCategoria,
       borrarCategoria,
@@ -553,6 +665,7 @@ export function ProveedorTienda({ children }: { children: ReactNode }) {
       errorGuardado, entrar, registrar,
       pedirRecuperacion, cambiarClave, salir, sincronizarAhora, reemplazar, agregarOrigen,
       editarOrigen, borrarOrigen, agregarMovimiento, editarMovimiento, borrarMovimiento,
+      agregarPedido, editarPedido, borrarPedido, registrarAbono,
       agregarCategoria, editarCategoria, borrarCategoria, editarConfig,
     ],
   )

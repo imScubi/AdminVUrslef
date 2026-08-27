@@ -67,6 +67,7 @@ export function baseVacia(conCategorias = true): BaseDatos {
     configActualizadaEn: new Date().toISOString(),
     origenes: [],
     movimientos: [],
+    pedidos: [],
     categorias: conCategorias ? categoriasIniciales() : [],
     config: { ...CONFIG_INICIAL },
   }
@@ -81,6 +82,7 @@ export function normalizar(entrada: unknown): BaseDatos {
 
   const origenes = Array.isArray(bruto.origenes) ? bruto.origenes : []
   const movimientos = Array.isArray(bruto.movimientos) ? bruto.movimientos : []
+  const pedidos = Array.isArray(bruto.pedidos) ? bruto.pedidos : []
   const categorias =
     Array.isArray(bruto.categorias) && bruto.categorias.length
       ? bruto.categorias
@@ -97,6 +99,8 @@ export function normalizar(entrada: unknown): BaseDatos {
       emoji: o.emoji ?? '',
       metaMensual: Number(o.metaMensual) || 0,
       notas: o.notas ?? '',
+      ...(o.logo ? { logo: o.logo } : {}),
+      ...(o.contacto ? { contacto: o.contacto } : {}),
       archivado: Boolean(o.archivado),
       creadoEn: o.creadoEn ?? ahora,
       actualizadoEn: o.actualizadoEn ?? ahora,
@@ -119,9 +123,29 @@ export function normalizar(entrada: unknown): BaseDatos {
         concepto: m.concepto ?? '',
         categoria: m.categoria,
         nota: m.nota,
+        pedidoId: m.pedidoId,
+        metodo: m.metodo,
+        folio: m.folio === undefined || m.folio === null ? undefined : Number(m.folio),
         creadoEn: m.creadoEn ?? ahora,
         actualizadoEn: m.actualizadoEn ?? ahora,
         ...(m.borrado ? { borrado: true } : {}),
+      })),
+    pedidos: pedidos
+      .filter((p) => p && p.id && p.origenId)
+      .map((p) => ({
+        id: p.id,
+        origenId: p.origenId,
+        tipo: p.tipo ?? 'venta',
+        cliente: p.cliente ?? '',
+        telefono: p.telefono ?? '',
+        concepto: p.concepto ?? '',
+        total: Number(p.total) || 0,
+        fecha: p.fecha ?? ahora.slice(0, 10),
+        estado: p.estado ?? 'abierto',
+        notas: p.notas ?? '',
+        creadoEn: p.creadoEn ?? ahora,
+        actualizadoEn: p.actualizadoEn ?? ahora,
+        ...(p.borrado ? { borrado: true } : {}),
       })),
     categorias: categorias.map((c) => ({
       id: c.id ?? nuevoId(),
@@ -156,6 +180,7 @@ export function cargar(usuarioId: string): BaseDatos | null {
         origenes: db.origenes.map((o) => ({ ...o, actualizadoEn: ahora })),
         categorias: db.categorias.map((c) => ({ ...c, actualizadoEn: ahora })),
         movimientos: db.movimientos.map((m) => ({ ...m, actualizadoEn: ahora })),
+        pedidos: db.pedidos.map((p) => ({ ...p, actualizadoEn: ahora })),
       }
     }
     return null

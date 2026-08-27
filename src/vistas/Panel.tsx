@@ -3,6 +3,7 @@ import { useTienda } from '../estado/tienda'
 import {
   consolidado,
   fichasDeOrigenes,
+  resumenPedidos,
   filtrarRango,
   gastosPorCategoria,
   generarAlertas,
@@ -22,18 +23,21 @@ export function Panel({
   onNuevoOrigen,
   onNuevoMovimiento,
   onVerMovimientos,
+  onVerPedidos,
 }: {
   rango: Rango
   onAbrirOrigen: (id: string) => void
   onNuevoOrigen: () => void
   onNuevoMovimiento: () => void
   onVerMovimientos: () => void
+  onVerPedidos: () => void
 }) {
   const { db } = useTienda()
 
   const { total, periodo } = useMemo(() => consolidado(db, rango), [db, rango])
   const fichas = useMemo(() => fichasDeOrigenes(db, rango), [db, rango])
   const alertas = useMemo(() => generarAlertas(db), [db])
+  const pedidos = useMemo(() => resumenPedidos(db), [db])
   const serieGlobal = useMemo(
     () => serieMensual(db.movimientos, db.categorias, 6),
     [db.movimientos, db.categorias],
@@ -111,6 +115,28 @@ export function Panel({
           ayuda="Dinero que sacaste de los negocios para ti. Si esto supera la ganancia, te estas comiendo el capital."
         />
       </div>
+
+      {pedidos.abiertos > 0 && (
+        <button
+          className="tarjeta banda-pedidos"
+          onClick={onVerPedidos}
+          aria-label="Ver pedidos abiertos"
+        >
+          <span className="banda-pedidos-icono">🧾</span>
+          <div>
+            <div style={{ fontWeight: 680 }}>
+              Te deben {dinero(pedidos.porCobrar)} en {pedidos.abiertos} pedido
+              {pedidos.abiertos === 1 ? '' : 's'}
+            </div>
+            <div className="mini tenue">
+              {pedidos.sinAbonar > 0
+                ? `${pedidos.sinAbonar} sin un solo abono todavia`
+                : `Llevan ${dineroCorto(pedidos.abonado)} abonados`}
+            </div>
+          </div>
+          <span className="banda-pedidos-flecha">›</span>
+        </button>
+      )}
 
       {alertas.length > 0 && (
         <div className="tarjeta">

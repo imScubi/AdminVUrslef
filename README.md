@@ -53,6 +53,26 @@ Con estos seis se describe cualquier cosa que le pase al dinero:
 
 ---
 
+## Pedidos y recibos
+
+Para lo que se paga en partes: separaciones, encargos y ventas con anticipo.
+
+Un **pedido** guarda a quién le vendes, su teléfono, qué lleva y el total acordado. Cada **abono**
+que registras se convierte automáticamente en una entrada de dinero en la caja de ese negocio: no
+capturas nada dos veces y la caja siempre refleja lo que de verdad te pagaron.
+
+Un pedido pagado en tres abonos cuenta como **una** venta, no como tres, para que el ticket
+promedio y el número de ventas no se distorsionen.
+
+Cada abono genera un **recibo** con folio consecutivo, el logo del negocio, los datos del cliente,
+el desglose (total, abonado antes, este abono, saldo) y cómo te pagaron. Se descarga como imagen
+para mandársela al cliente. También hay un **estado de cuenta** con todos los abonos del pedido.
+
+El logo y el contacto que salen en el recibo se configuran al editar cada origen. El logo se
+reduce a 320px antes de guardarse, para que sincronizar no cargue una foto de cámara completa.
+
+---
+
 ## Cómo se calculan los números
 
 Esta es la parte que hace que la app sirva de verdad, así que vale la pena entenderla.
@@ -153,12 +173,17 @@ src/
   lib/almacen.ts        copia local por cuenta, respaldo y restauración
   estado/tienda.tsx     estado global, sesión y cola de cambios sin señal
   componentes/          piezas reutilizables (formularios, gráficas, listas)
-  vistas/               Acceso, Panel, DetalleOrigen, Movimientos, Comparar, Ajustes
+  vistas/               Acceso, Panel, DetalleOrigen, Pedidos, DetallePedido,
+                        Movimientos, Comparar, Ajustes
+  componentes/Recibo    dibuja el recibo en un canvas y lo exporta como PNG
 public/sw.js            service worker; la lista de precarga la inyecta vite.config.ts
 ```
 
 ### Base de datos
 
-Tablas `av_origenes`, `av_movimientos`, `av_categorias` y `av_config`, todas con `usuario_id`,
-RLS activo y una política por tabla (`usuario_id = auth.uid()`). Llevan el prefijo `av_` para
-convivir con otras tablas en el mismo proyecto de Supabase.
+Tablas `av_origenes`, `av_movimientos`, `av_categorias`, `av_pedidos` y `av_config`, todas con
+`usuario_id`, RLS activo y una política por tabla (`usuario_id = auth.uid()`). Llevan el prefijo
+`av_` para convivir con otras tablas en el mismo proyecto de Supabase.
+
+Los abonos no tienen tabla propia: son filas de `av_movimientos` con `pedido_id`, `metodo` y
+`folio`. Así el dinero tiene una sola fuente de verdad.

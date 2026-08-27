@@ -1,4 +1,4 @@
-import type { BaseDatos, Categoria, Movimiento, Origen } from '../tipos'
+import type { BaseDatos, Categoria, Movimiento, Origen, Pedido } from '../tipos'
 import { diasEntre, hoy, inicioDeMes, mesDe, mesesEntre, sumarMeses } from './fechas'
 
 export interface Rango {
@@ -111,12 +111,19 @@ export function calcular(
   origenId?: string,
 ): Estadisticas {
   const e: Estadisticas = { ...CERO }
+  // Un pedido pagado en abonos es UNA venta, no una por abono; si no, el
+  // ticket promedio se hunde y el numero de ventas se infla.
+  const pedidosContados = new Set<string>()
 
   for (const m of movs) {
     switch (m.tipo) {
       case 'venta': {
         e.ventas += m.monto
-        e.numVentas += 1
+        if (!m.pedidoId) e.numVentas += 1
+        else if (!pedidosContados.has(m.pedidoId)) {
+          pedidosContados.add(m.pedidoId)
+          e.numVentas += 1
+        }
         e.costoVendido += m.costo ?? 0
         if (!e.ultimaVenta || m.fecha > e.ultimaVenta) e.ultimaVenta = m.fecha
         break
@@ -510,4 +517,78 @@ export function generarAlertas(db: BaseDatos): Alerta[] {
 
   const orden = { peligro: 0, aviso: 1, bien: 2 }
   return alertas.sort((a, b) => orden[a.nivel] - orden[b.nivel])
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Pedidos                                                             */
+/* ------------------------------------------------------------------ */
+
+export interface EstadoCuenta {
+  pedido: Pedido
+  /** Abonos de este pedido, del mas viejo al mas nuevo. */
+  abonos: Movimiento[]
+  abonado: number
+  saldo: number
+  /** Porcentaje ya cubierto, topado a 100. */
+  avance: number
+  liquidado: boolean
+}
+
+export function abonosDe(movs: Movimiento[], pedidoId: string): Movimiento[] {
+  return movs
+    .filter((m) => m.pedidoId === pedidoId && m.tipo === 'venta')
+    .sort((a, b) =>
+      a.fecha === b.fecha ? a.creadoEn.localeCompare(b.creadoEn) : a.fecha.localeCompare(b.fecha),
+    )
+}
+
+export function estadoDeCuenta(pedido: Pedido, movs: Movimiento[]): EstadoCuenta {
+  const abonos = abonosDe(movs, pedido.id)
+  const abonado = abonos.reduce((s, m) => s + m.monto, 0)
+  const saldo = pedido.total - abonado
+  return {
+    pedido,
+    abonos,
+    abonado,
+    saldo,
+    avance: pedido.total > 0 ? Math.min(100, (abonado / pedido.total) * 100) : 0,
+    liquidado: saldo <= 0.005,
+  }
+}
+
+export interface ResumenPedidos {
+  abiertos: number
+  /** Dinero que te deben en los pedidos abiertos. */
+  porCobrar: number
+  /** Cuanto llevan abonado esos pedidos abiertos. */
+  abonado: number
+  /** Pedidos abiertos sin un solo abono. */
+  sinAbonar: number
+}
+
+export function resumenPedidos(db: BaseDatos, origenId?: string): ResumenPedidos {
+  const resumen: ResumenPedidos = { abiertos: 0, porCobrar: 0, abonado: 0, sinAbonar: 0 }
+  for (const pedido of db.pedidos) {
+    if (pedido.estado !== 'abierto') continue
+    if (origenId && pedido.origenId !== origenId) continue
+    const cuenta = estadoDeCuenta(pedido, db.movimientos)
+    resumen.abiertos += 1
+    resumen.porCobrar += Math.max(cuenta.saldo, 0)
+    resumen.abonado += cuenta.abonado
+    if (cuenta.abonado <= 0) resumen.sinAbonar += 1
+  }
+  return resumen
+}
+
+/** Siguiente folio de recibo dentro de un origen. */
+export function siguienteFolio(db: BaseDatos, origenId: string): number {
+  let mayor = 0
+  const suyos = new Set(db.pedidos.filter((p) => p.origenId === origenId).map((p) => p.id))
+  for (const m of db.movimientos) {
+    if (!m.folio) continue
+    if (m.origenId !== origenId && !(m.pedidoId && suyos.has(m.pedidoId))) continue
+    if (m.folio > mayor) mayor = m.folio
+  }
+  return mayor + 1
 }

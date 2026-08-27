@@ -10,7 +10,10 @@ import { FormMovimiento } from './componentes/FormMovimiento'
 import { FormOrigen } from './componentes/FormOrigen'
 import { EstadoNube } from './componentes/EstadoNube'
 import { Acceso, NuevaClave } from './vistas/Acceso'
+import { FormPedido } from './componentes/FormPedido'
 import { Panel } from './vistas/Panel'
+import { Pedidos } from './vistas/Pedidos'
+import { DetallePedido } from './vistas/DetallePedido'
 import { DetalleOrigen } from './vistas/DetalleOrigen'
 import { Movimientos } from './vistas/Movimientos'
 import { Comparar } from './vistas/Comparar'
@@ -18,21 +21,26 @@ import { Ajustes } from './vistas/Ajustes'
 
 type Vista =
   | { tipo: 'panel' }
+  | { tipo: 'pedidos' }
   | { tipo: 'movimientos' }
   | { tipo: 'comparar' }
   | { tipo: 'ajustes' }
   | { tipo: 'origen'; id: string }
+  | { tipo: 'pedido'; id: string }
 
 const TITULOS: Record<Vista['tipo'], { titulo: string; sub: string }> = {
   panel: { titulo: 'Panel', sub: 'Como van todos tus negocios juntos' },
+  pedidos: { titulo: 'Pedidos', sub: 'Separaciones, encargos y sus recibos' },
   movimientos: { titulo: 'Movimientos', sub: 'Todo lo que ha entrado y salido' },
   comparar: { titulo: 'Comparar', sub: 'A cual conviene meterle mas' },
   ajustes: { titulo: 'Ajustes', sub: 'Cuenta, respaldo y preferencias' },
   origen: { titulo: 'Origen', sub: '' },
+  pedido: { titulo: 'Pedido', sub: '' },
 }
 
 const PESTANIAS: Array<{ id: Vista['tipo']; icono: string; etiqueta: string }> = [
   { id: 'panel', icono: '📊', etiqueta: 'Panel' },
+  { id: 'pedidos', icono: '🧾', etiqueta: 'Pedidos' },
   { id: 'movimientos', icono: '📋', etiqueta: 'Movs' },
   { id: 'comparar', icono: '⚖️', etiqueta: 'Comparar' },
   { id: 'ajustes', icono: '⚙️', etiqueta: 'Ajustes' },
@@ -41,12 +49,15 @@ const PESTANIAS: Array<{ id: Vista['tipo']; icono: string; etiqueta: string }> =
 function leerHash(): Vista {
   const h = window.location.hash.replace(/^#\/?/, '')
   if (h.startsWith('origen/')) return { tipo: 'origen', id: h.slice(7) }
-  if (h === 'movimientos' || h === 'comparar' || h === 'ajustes') return { tipo: h }
+  if (h.startsWith('pedido/')) return { tipo: 'pedido', id: h.slice(7) }
+  if (h === 'movimientos' || h === 'comparar' || h === 'ajustes' || h === 'pedidos')
+    return { tipo: h }
   return { tipo: 'panel' }
 }
 
 function escribirHash(v: Vista) {
-  const destino = v.tipo === 'origen' ? `#/origen/${v.id}` : `#/${v.tipo}`
+  const destino =
+    v.tipo === 'origen' || v.tipo === 'pedido' ? `#/${v.tipo}/${v.id}` : `#/${v.tipo}`
   if (window.location.hash !== destino) window.location.hash = destino
 }
 
@@ -59,6 +70,7 @@ function Aplicacion() {
     { abierto: false } | { abierto: true; origenId?: string; tipo?: TipoMovimiento }
   >({ abierto: false })
   const [formOrigen, setFormOrigen] = useState(false)
+  const [formPedido, setFormPedido] = useState(false)
 
   const ir = useCallback((v: Vista) => {
     setVista(v)
@@ -101,6 +113,11 @@ function Aplicacion() {
     return () => window.removeEventListener('keydown', alTeclear)
   }, [db.origenes.length])
 
+  const pedidosAbiertos = useMemo(
+    () => db.pedidos.filter((p) => p.estado === 'abierto').length,
+    [db.pedidos],
+  )
+
   const saldos = useMemo(() => {
     const mapa = new Map<string, number>()
     for (const o of db.origenes) {
@@ -129,10 +146,14 @@ function Aplicacion() {
 
   const origenActual =
     vista.tipo === 'origen' ? db.origenes.find((o) => o.id === vista.id) : undefined
+  const pedidoActual =
+    vista.tipo === 'pedido' ? db.pedidos.find((p) => p.id === vista.id) : undefined
   const encabezado =
     vista.tipo === 'origen'
       ? { titulo: origenActual?.nombre ?? 'Origen', sub: 'Estadisticas e historial' }
-      : TITULOS[vista.tipo]
+      : vista.tipo === 'pedido'
+        ? { titulo: pedidoActual?.cliente || 'Pedido', sub: 'Abonos y recibos' }
+        : TITULOS[vista.tipo]
 
   return (
     <div className="app">
@@ -156,6 +177,9 @@ function Aplicacion() {
               {n.id === 'movimientos' ? 'Movimientos' : n.etiqueta}
               {n.id === 'movimientos' && (
                 <span className="nav-conteo">{db.movimientos.length}</span>
+              )}
+              {n.id === 'pedidos' && pedidosAbiertos > 0 && (
+                <span className="nav-conteo">{pedidosAbiertos}</span>
               )}
             </button>
           ))}
@@ -226,6 +250,13 @@ function Aplicacion() {
             <div className="barra-titulo">
               <h1 style={{ fontSize: '1.18rem' }}>
                 {vista.tipo === 'origen' && origenActual ? `${origenActual.emoji} ` : ''}
+              {vista.tipo === 'pedido' && pedidoActual
+                ? pedidoActual.tipo === 'venta'
+                  ? '💵 '
+                  : pedidoActual.tipo === 'separacion'
+                    ? '🔖 '
+                    : '📦 '
+                : ''}
                 {encabezado.titulo}
               </h1>
               <span className="mini tenue">{encabezado.sub}</span>
@@ -242,7 +273,10 @@ function Aplicacion() {
             </div>
           </header>
 
-          {vista.tipo !== 'ajustes' && (
+          {/* El rango solo manda donde hay estadisticas por periodo. */}
+          {vista.tipo !== 'ajustes' &&
+            vista.tipo !== 'pedidos' &&
+            vista.tipo !== 'pedido' && (
             <div className="barra-rango">
               <SelectorRango rango={rango} onCambio={setRango} />
             </div>
@@ -257,6 +291,7 @@ function Aplicacion() {
               onNuevoOrigen={() => setFormOrigen(true)}
               onNuevoMovimiento={() => setFormMovimiento({ abierto: true })}
               onVerMovimientos={() => ir({ tipo: 'movimientos' })}
+              onVerPedidos={() => ir({ tipo: 'pedidos' })}
             />
           )}
           {vista.tipo === 'movimientos' && (
@@ -267,6 +302,19 @@ function Aplicacion() {
           )}
           {vista.tipo === 'comparar' && (
             <Comparar rango={rango} onAbrirOrigen={(id) => ir({ tipo: 'origen', id })} />
+          )}
+          {vista.tipo === 'pedidos' && (
+            <Pedidos
+              onAbrirPedido={(id) => ir({ tipo: 'pedido', id })}
+              onNuevoPedido={() => setFormPedido(true)}
+            />
+          )}
+          {vista.tipo === 'pedido' && (
+            <DetallePedido
+              pedidoId={vista.id}
+              onSalir={() => ir({ tipo: 'pedidos' })}
+              onAbrirOrigen={(id) => ir({ tipo: 'origen', id })}
+            />
           )}
           {vista.tipo === 'ajustes' && <Ajustes />}
           {vista.tipo === 'origen' && (
@@ -324,6 +372,15 @@ function Aplicacion() {
           onCerrar={(id) => {
             setFormOrigen(false)
             if (id) ir({ tipo: 'origen', id })
+          }}
+        />
+      )}
+      {formPedido && (
+        <FormPedido
+          origenInicial={vista.tipo === 'origen' ? vista.id : undefined}
+          onCerrar={(id) => {
+            setFormPedido(false)
+            if (id) ir({ tipo: 'pedido', id })
           }}
         />
       )}

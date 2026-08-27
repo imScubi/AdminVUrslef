@@ -663,7 +663,7 @@ table.tabla td.num, table.tabla th.num { text-align: right; font-variant-numeric
   position: fixed;
   inset: auto 0 0 0;
   z-index: 40;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   align-items: center;
   gap: 2px;
   padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
@@ -677,15 +677,16 @@ table.tabla td.num, table.tabla th.num { text-align: right; font-variant-numeric
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 7px 2px;
+  padding: 7px 1px;
   border: 0;
   background: none;
   cursor: pointer;
   border-radius: 12px;
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   font-weight: 650;
   color: var(--texto-3);
   min-height: 50px;
+  overflow: hidden;
 }
 .barra-inferior .tab.activo { color: var(--acento); background: var(--acento-suave); }
 .barra-inferior .tab-icono { font-size: 1.12rem; line-height: 1.1; }
@@ -788,3 +789,91 @@ input[type='color'] {
 input[type='color']::-webkit-color-swatch-wrapper { padding: 4px; }
 input[type='color']::-webkit-color-swatch { border: 0; border-radius: 7px; }
 input[type='color']::-moz-color-swatch { border: 0; border-radius: 7px; }
+
+/* ---------------------------------------------------------------- */
+/* Pedidos y recibos                                                 */
+/* ---------------------------------------------------------------- */
+
+.lista-pedidos { display: flex; flex-direction: column; gap: 10px; }
+
+.pedido-fila {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  padding: 14px 16px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sombra-1);
+  transition: transform 0.1s, box-shadow 0.12s, border-color 0.12s;
+}
+.pedido-fila:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--sombra-2);
+  border-color: var(--borde-fuerte);
+}
+
+.pedido-cab { display: flex; align-items: center; gap: 11px; }
+.pedido-icono {
+  width: 38px; height: 38px; border-radius: 12px; flex: none;
+  display: grid; place-items: center; font-size: 1.05rem;
+  background: var(--superficie-3);
+}
+.pedido-cliente { font-weight: 680; font-size: 0.95rem; }
+.pedido-concepto {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.pedido-pie { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+/* Vista previa del recibo: siempre sobre gris, no depende del tema */
+.lienzo-recibo {
+  background: #eceef2;
+  padding: 12px;
+  border-radius: var(--r-md);
+  overflow: auto;
+  max-height: 62vh;
+}
+.lienzo-recibo canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgb(0 0 0 / 0.18);
+}
+
+.caja-logo {
+  width: 76px;
+  height: 76px;
+  flex: none;
+  border-radius: 16px;
+  border: 1px dashed var(--borde-fuerte);
+  background: var(--superficie-2);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  font-size: 0.68rem;
+  color: var(--texto-3);
+  text-align: center;
+}
+.caja-logo img { width: 100%; height: 100%; object-fit: contain; }
+
+.banda-pedidos {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--acento) 30%, var(--borde));
+  background: linear-gradient(140deg, var(--acento-suave), var(--superficie) 78%);
+}
+.banda-pedidos:hover { border-color: var(--acento); }
+.banda-pedidos-icono { font-size: 1.3rem; }
+.banda-pedidos-flecha { margin-left: auto; font-size: 1.5rem; color: var(--texto-3); }

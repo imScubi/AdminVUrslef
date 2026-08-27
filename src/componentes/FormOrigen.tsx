@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { Origen, TipoOrigen } from '../tipos'
 import { ETIQUETA_TIPO_ORIGEN } from '../tipos'
 import { useTienda } from '../estado/tienda'
@@ -15,6 +15,33 @@ const EMOJIS = [
   '💼', '📦', '👕', '👟', '📱', '💻', '🎮', '🍰', '☕', '🚗',
   '💅', '✂️', '🎨', '📸', '🔧', '🏠', '📈', '🪙', '🎁', '🧃',
 ]
+
+const LADO_LOGO = 320
+
+/** Reduce el logo antes de guardarlo: si no, cada sincronizacion cargaria
+ *  una imagen de camara completa. */
+function encogerLogo(archivo: File): Promise<string> {
+  return new Promise((resolver, rechazar) => {
+    const lector = new FileReader()
+    lector.onerror = () => rechazar(new Error('No se pudo leer la imagen.'))
+    lector.onload = () => {
+      const img = new Image()
+      img.onerror = () => rechazar(new Error('Ese archivo no parece una imagen.'))
+      img.onload = () => {
+        const escala = Math.min(1, LADO_LOGO / Math.max(img.width, img.height))
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.round(img.width * escala)
+        canvas.height = Math.round(img.height * escala)
+        const ctx = canvas.getContext('2d')
+        if (!ctx) return rechazar(new Error('No se pudo procesar la imagen.'))
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        resolver(canvas.toDataURL('image/png'))
+      }
+      img.src = String(lector.result)
+    }
+    lector.readAsDataURL(archivo)
+  })
+}
 
 export function FormOrigen({
   origen,
@@ -33,6 +60,9 @@ export function FormOrigen({
     origen?.metaMensual ? String(origen.metaMensual) : '',
   )
   const [notas, setNotas] = useState(origen?.notas ?? '')
+  const [logo, setLogo] = useState(origen?.logo ?? '')
+  const [contacto, setContacto] = useState(origen?.contacto ?? '')
+  const archivoRef = useRef<HTMLInputElement>(null)
   const [capitalInicial, setCapitalInicial] = useState('')
   const [error, setError] = useState<string | null>(null)
 
@@ -49,6 +79,8 @@ export function FormOrigen({
       metaMensual: aNumero(metaMensual),
       notas: notas.trim(),
       archivado: origen?.archivado ?? false,
+      logo: logo || undefined,
+      contacto: contacto.trim() || undefined,
     }
 
     if (origen) {
@@ -190,6 +222,56 @@ export function FormOrigen({
             <span className="ayuda">Se registra como aporte y sirve para medir el ROI.</span>
           </div>
         )}
+      </div>
+
+      <div className="campo">
+        <label>Logo y datos del recibo</label>
+        <span className="ayuda">
+          Esto es lo que sale impreso cuando le das un recibo a un cliente.
+        </span>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 4 }}>
+          <div className="caja-logo">
+            {logo ? <img src={logo} alt="Logo del negocio" /> : <span>Sin logo</span>}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <button className="btn chico" onClick={() => archivoRef.current?.click()}>
+              {logo ? 'Cambiar logo' : 'Subir logo'}
+            </button>
+            {logo && (
+              <button className="btn chico fantasma" onClick={() => setLogo('')}>
+                Quitar
+              </button>
+            )}
+          </div>
+          <input
+            ref={archivoRef}
+            type="file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={async (e) => {
+              const archivo = e.target.files?.[0]
+              e.target.value = ''
+              if (!archivo) return
+              try {
+                setLogo(await encogerLogo(archivo))
+                setError(null)
+              } catch (problema) {
+                setError(problema instanceof Error ? problema.message : 'No se pudo usar la imagen.')
+              }
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="campo">
+        <label htmlFor="or-contacto">Contacto para el recibo (opcional)</label>
+        <input
+          id="or-contacto"
+          type="text"
+          placeholder="Tel. 55 1234 5678 · @minegocio"
+          value={contacto}
+          onChange={(e) => setContacto(e.target.value)}
+        />
       </div>
 
       <div className="campo">
