@@ -116,42 +116,90 @@ export async function dibujarRecibo(
   let y = 62
 
   // --- Encabezado ---
-  const hayLogo = Boolean(logo)
-  if (logo) {
-    ctx.save()
-    rectRedondo(ctx, MARGEN, y, 96, 96, 20)
-    ctx.clip()
-    const escala = Math.max(96 / logo.width, 96 / logo.height)
-    const w = logo.width * escala
-    const h = logo.height * escala
-    ctx.drawImage(logo, MARGEN + (96 - w) / 2, y + (96 - h) / 2, w, h)
-    ctx.restore()
-  }
+  const yInicio = y
 
-  const xTexto = hayLogo ? MARGEN + 122 : MARGEN
-  ctx.textAlign = 'left'
-  ctx.fillStyle = tinta
-  ctx.font = '700 38px system-ui, -apple-system, "Segoe UI", sans-serif'
-  ctx.fillText(origen.nombre, xTexto, y + 36)
-  if (origen.contacto?.trim()) {
-    ctx.fillStyle = suave
-    ctx.font = '400 22px system-ui, -apple-system, "Segoe UI", sans-serif'
-    ctx.fillText(origen.contacto.trim(), xTexto, y + 70)
-  }
-
+  // Bloque derecho: tipo de documento, folio y fecha.
   ctx.textAlign = 'right'
   ctx.fillStyle = suave
   ctx.font = '600 20px system-ui, -apple-system, "Segoe UI", sans-serif'
-  ctx.fillText(abono ? 'RECIBO DE ABONO' : 'ESTADO DE CUENTA', ANCHO - MARGEN, y + 22)
+  const titulo = abono ? 'RECIBO DE ABONO' : 'ESTADO DE CUENTA'
+  ctx.fillText(titulo, ANCHO - MARGEN, yInicio + 22)
+  let anchoDerecha = ctx.measureText(titulo).width
+
   ctx.fillStyle = tinta
   ctx.font = '700 26px system-ui, -apple-system, "Segoe UI", sans-serif'
   const folio = abono?.folio ? `Folio ${String(abono.folio).padStart(4, '0')}` : ''
-  if (folio) ctx.fillText(folio, ANCHO - MARGEN, y + 54)
+  if (folio) {
+    ctx.fillText(folio, ANCHO - MARGEN, yInicio + 54)
+    anchoDerecha = Math.max(anchoDerecha, ctx.measureText(folio).width)
+  }
+
   ctx.fillStyle = suave
   ctx.font = '400 20px system-ui, -apple-system, "Segoe UI", sans-serif'
-  ctx.fillText(fechaLegible(abono?.fecha ?? pedido.fecha), ANCHO - MARGEN, y + 84)
+  const textoFecha = fechaLegible(abono?.fecha ?? pedido.fecha)
+  ctx.fillText(textoFecha, ANCHO - MARGEN, yInicio + 84)
+  anchoDerecha = Math.max(anchoDerecha, ctx.measureText(textoFecha).width)
+  const fondoDerecha = yInicio + 96
 
-  y += hayLogo ? 128 : 118
+  /*
+   * El logo se dibuja COMPLETO dentro de una caja, nunca recortado. Antes se
+   * forzaba a un cuadro de 96x96 quedandose con lo que cupiera, asi que a un
+   * logo horizontal le cortaba los lados. Ahora se escala para que quepa
+   * entero y, si sale ancho, se pone en su propio renglon para no quitarle
+   * espacio al nombre del negocio.
+   */
+  const ALTO_CAJA_LOGO = 92
+  const ANCHO_CAJA_LOGO = 320
+  let anchoLogo = 0
+  let altoLogo = 0
+  if (logo) {
+    const escala = Math.min(ALTO_CAJA_LOGO / logo.height, ANCHO_CAJA_LOGO / logo.width)
+    anchoLogo = logo.width * escala
+    altoLogo = logo.height * escala
+  }
+  const logoEnSuRenglon = anchoLogo > 160
+
+  let yIzquierda = yInicio
+  if (logo && logoEnSuRenglon) {
+    ctx.drawImage(logo, MARGEN, yIzquierda, anchoLogo, altoLogo)
+    yIzquierda += altoLogo + 24
+  }
+
+  const hayContacto = Boolean(origen.contacto?.trim())
+  const altoTexto = hayContacto ? 74 : 46
+  const altoFila = logo && !logoEnSuRenglon ? Math.max(altoLogo, altoTexto) : altoTexto
+  const yTexto = yIzquierda + (altoFila - altoTexto) / 2
+
+  if (logo && !logoEnSuRenglon) {
+    ctx.drawImage(logo, MARGEN, yIzquierda + (altoFila - altoLogo) / 2, anchoLogo, altoLogo)
+  }
+
+  const xTexto = logo && !logoEnSuRenglon ? MARGEN + anchoLogo + 22 : MARGEN
+
+  // El nombre se encoge antes que invadir el bloque de la derecha.
+  const anchoNombre = Math.max(
+    140,
+    (yTexto < fondoDerecha ? ANCHO - MARGEN - anchoDerecha - 28 : ANCHO - MARGEN) - xTexto,
+  )
+  ctx.textAlign = 'left'
+  ctx.fillStyle = tinta
+  let tamNombre = 38
+  const fuenteNombre = (t: number) =>
+    `700 ${t}px system-ui, -apple-system, "Segoe UI", sans-serif`
+  ctx.font = fuenteNombre(tamNombre)
+  while (ctx.measureText(origen.nombre).width > anchoNombre && tamNombre > 20) {
+    tamNombre -= 2
+    ctx.font = fuenteNombre(tamNombre)
+  }
+  ctx.fillText(origen.nombre, xTexto, yTexto + 36)
+
+  if (hayContacto) {
+    ctx.fillStyle = suave
+    ctx.font = '400 22px system-ui, -apple-system, "Segoe UI", sans-serif'
+    ctx.fillText(origen.contacto!.trim(), xTexto, yTexto + 68)
+  }
+
+  y = Math.max(yIzquierda + altoFila, fondoDerecha) + 24
   ctx.strokeStyle = linea
   ctx.lineWidth = 1
   ctx.beginPath()

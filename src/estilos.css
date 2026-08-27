@@ -847,8 +847,10 @@ input[type='color']::-moz-color-swatch { border: 0; border-radius: 7px; }
   box-shadow: 0 2px 10px rgb(0 0 0 / 0.18);
 }
 
+/* Ancha, no cuadrada: asi la vista previa se parece a como sale en el recibo,
+   donde un logo horizontal cabe entero. */
 .caja-logo {
-  width: 76px;
+  width: 124px;
   height: 76px;
   flex: none;
   border-radius: 16px;
@@ -861,7 +863,7 @@ input[type='color']::-moz-color-swatch { border: 0; border-radius: 7px; }
   color: var(--texto-3);
   text-align: center;
 }
-.caja-logo img { width: 100%; height: 100%; object-fit: contain; }
+.caja-logo img { width: 100%; height: 100%; object-fit: contain; padding: 4px; }
 
 .banda-pedidos {
   display: flex;
