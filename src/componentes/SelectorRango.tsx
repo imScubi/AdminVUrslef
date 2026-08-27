@@ -16,7 +16,8 @@ export function SelectorRango({
           className={rango.id === o.id ? 'activo' : ''}
           onClick={() => onCambio(construirRango(o.id as IdRango))}
         >
-          {o.etiqueta}
+          <span className="rango-largo">{o.etiqueta}</span>
+          <span className="rango-corto">{o.corto}</span>
         </button>
       ))}
     </div>

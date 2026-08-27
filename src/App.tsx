@@ -219,31 +219,35 @@ function Aplicacion() {
         )}
         {errorGuardado && <div className="banda-error">{errorGuardado}</div>}
 
-        <header className="barra">
-          <div className="barra-titulo">
-            <h1 style={{ fontSize: '1.18rem' }}>
-              {vista.tipo === 'origen' && origenActual ? `${origenActual.emoji} ` : ''}
-              {encabezado.titulo}
-            </h1>
-            <span className="mini tenue">{encabezado.sub}</span>
-          </div>
-          <div className="barra-acciones">
-            <EstadoNube />
-            <button
-              className="btn primario solo-escritorio"
-              onClick={() => setFormMovimiento({ abierto: true })}
-              disabled={vacio}
-            >
-              + Registrar
-            </button>
-          </div>
-        </header>
+        {/* Encabezado y rango van juntos en UN solo bloque pegajoso: cuando
+            eran dos sticky al mismo top se encimaban al desplazar. */}
+        <div className="cabecera-fija">
+          <header className="barra">
+            <div className="barra-titulo">
+              <h1 style={{ fontSize: '1.18rem' }}>
+                {vista.tipo === 'origen' && origenActual ? `${origenActual.emoji} ` : ''}
+                {encabezado.titulo}
+              </h1>
+              <span className="mini tenue">{encabezado.sub}</span>
+            </div>
+            <div className="barra-acciones">
+              <EstadoNube />
+              <button
+                className="btn primario solo-escritorio"
+                onClick={() => setFormMovimiento({ abierto: true })}
+                disabled={vacio}
+              >
+                + Registrar
+              </button>
+            </div>
+          </header>
 
-        {vista.tipo !== 'ajustes' && (
-          <div className="barra-rango">
-            <SelectorRango rango={rango} onCambio={setRango} />
-          </div>
-        )}
+          {vista.tipo !== 'ajustes' && (
+            <div className="barra-rango">
+              <SelectorRango rango={rango} onCambio={setRango} />
+            </div>
+          )}
+        </div>
 
         <div className="contenido">
           {vista.tipo === 'panel' && (

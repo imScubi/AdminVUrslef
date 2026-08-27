@@ -230,13 +230,27 @@ a { color: var(--acento); }
 
 .principal { min-width: 0; display: flex; flex-direction: column; }
 
-.barra {
-  position: sticky; top: 0; z-index: 20;
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  padding: 14px 26px;
-  background: color-mix(in srgb, var(--fondo) 88%, transparent);
+/*
+ * Un unico bloque pegajoso. Antes .barra y .barra-rango eran dos sticky al
+ * mismo top: al desplazar hacia abajo el rango se metia debajo del encabezado
+ * y al volver a subir reaparecia, dando ese corte que cambiaba segun donde
+ * estuvieras en la pagina.
+ */
+.cabecera-fija {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: color-mix(in srgb, var(--fondo) 92%, transparent);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--borde);
+}
+
+.barra-rango { padding: 0 26px 12px; }
+.rango-corto { display: none; }
+
+.barra {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 14px 26px;
 }
 .barra-titulo { display: flex; flex-direction: column; min-width: 0; }
 .barra-acciones { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -567,6 +581,11 @@ table.tabla td.num, table.tabla th.num { text-align: right; font-variant-numeric
   .lateral { display: none; }
   .barra { padding: 12px 14px; }
   .barra-rango { padding: 0 14px 10px; }
+  /* Las cinco opciones reparten el ancho exacto: ni scroll ni recorte. */
+  .barra-rango .segmentado { display: flex; width: 100%; }
+  .barra-rango .segmentado button { flex: 1 1 0; min-width: 0; padding: 7px 4px; font-size: 0.78rem; }
+  .rango-largo { display: none; }
+  .rango-corto { display: inline; }
   .contenido { padding: 14px 14px calc(96px + env(safe-area-inset-bottom)); }
   .barra-inferior { display: grid; }
   .solo-escritorio { display: none !important; }
@@ -587,6 +606,10 @@ table.tabla td.num, table.tabla th.num { text-align: right; font-variant-numeric
   .mov-acciones { opacity: 1; }
   .tipos-mov { grid-template-columns: repeat(3, 1fr); }
   .solo-escritorio-en-linea { display: none; }
+  /* Los filtros de la cabecera de una tarjeta se acomodan en dos renglones
+     en vez de cortarse contra el borde. */
+  .tarjeta-cab .barra-acciones { max-width: 100%; }
+  .tarjeta-cab .segmentado { flex-wrap: wrap; max-width: 100%; }
   /* Objetivos de toque comodos para el pulgar */
   .btn { padding: 10px 14px; }
   .btn.chico { padding: 7px 11px; }
@@ -683,16 +706,6 @@ table.tabla td.num, table.tabla th.num { text-align: right; font-variant-numeric
 }
 .barra-inferior .tab-central:disabled { opacity: 0.45; box-shadow: none; }
 
-.barra-rango {
-  position: sticky;
-  top: 0;
-  z-index: 15;
-  padding: 0 26px 12px;
-  background: color-mix(in srgb, var(--fondo) 88%, transparent);
-  backdrop-filter: blur(12px);
-  overflow-x: auto;
-}
-.barra-rango .segmentado { min-width: max-content; }
 
 @media (max-width: 560px) {
   .mov-concepto {

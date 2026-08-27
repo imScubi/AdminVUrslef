@@ -38,10 +38,11 @@ export function construirRango(id: IdRango, desde?: string, hasta?: string): Ran
   }
 }
 
-export const OPCIONES_RANGO: Array<{ id: IdRango; etiqueta: string }> = [
-  { id: 'mes', etiqueta: 'Este mes' },
-  { id: 'mesPasado', etiqueta: 'Mes pasado' },
-  { id: 'trimestre', etiqueta: '3 meses' },
-  { id: 'anio', etiqueta: 'Este anio' },
-  { id: 'todo', etiqueta: 'Todo' },
+/** `corto` se usa en celular para que las cinco opciones quepan sin scroll. */
+export const OPCIONES_RANGO: Array<{ id: IdRango; etiqueta: string; corto: string }> = [
+  { id: 'mes', etiqueta: 'Este mes', corto: 'Mes' },
+  { id: 'mesPasado', etiqueta: 'Mes pasado', corto: 'Anterior' },
+  { id: 'trimestre', etiqueta: '3 meses', corto: '3 meses' },
+  { id: 'anio', etiqueta: 'Este anio', corto: 'Anio' },
+  { id: 'todo', etiqueta: 'Todo', corto: 'Todo' },
 ]
