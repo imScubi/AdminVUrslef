@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useTienda } from '../estado/tienda'
-import { estadoDeCuenta } from '../lib/calculos'
+import { costoDePedido, estadoDeCuenta } from '../lib/calculos'
 import { dinero, porcentaje } from '../lib/formato'
 import { fechaLegible } from '../lib/fechas'
 import {
@@ -58,6 +58,9 @@ export function DetallePedido({
   }
 
   const wa = paraWhatsapp(pedido.telefono)
+  const costo = costoDePedido(pedido)
+  const ganancia = pedido.total - costo
+  const margen = pedido.total > 0 ? (ganancia / pedido.total) * 100 : null
 
   return (
     <>
@@ -140,7 +143,7 @@ export function DetallePedido({
           </div>
         </div>
         <div className="tarjeta-cuerpo" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div className="rejilla c3">
+          <div className={costo > 0 ? 'rejilla c4' : 'rejilla c3'}>
             <Metrica mediana etiqueta="Total" valor={dinero(pedido.total)} />
             <Metrica mediana etiqueta="Abonado" valor={dinero(cuenta.abonado)} tono="pos" />
             <Metrica
@@ -150,6 +153,16 @@ export function DetallePedido({
               tono={cuenta.liquidado ? 'pos' : 'neg'}
               pie={cuenta.liquidado ? 'Pagado por completo' : `${porcentaje(cuenta.avance, 0)} cubierto`}
             />
+            {costo > 0 && (
+              <Metrica
+                mediana
+                etiqueta="Te deja"
+                valor={dinero(ganancia)}
+                tono={ganancia >= 0 ? 'pos' : 'neg'}
+                pie={`Costo ${dinero(costo, 0)} · margen ${porcentaje(margen, 0)}`}
+                ayuda="Total menos lo que te costo. El costo se va reconociendo conforme te van pagando."
+              />
+            )}
           </div>
           <BarraProgreso
             valor={cuenta.avance}

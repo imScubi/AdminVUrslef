@@ -3,7 +3,7 @@ import type { EstadoPedido, LineaPedido, MetodoPago, Pedido, TipoPedido } from '
 import { ETIQUETA_ESTADO_PEDIDO, ETIQUETA_METODO, ETIQUETA_TIPO_PEDIDO } from '../tipos'
 import { useTienda } from '../estado/tienda'
 import { inventarioDe } from '../lib/calculos'
-import { aNumero, dinero } from '../lib/formato'
+import { aNumero, dinero, porcentaje } from '../lib/formato'
 import { hoy } from '../lib/fechas'
 import { Modal } from './ui'
 
@@ -33,6 +33,7 @@ export function FormPedido({
   const [telefono, setTelefono] = useState(pedido?.telefono ?? '')
   const [concepto, setConcepto] = useState(pedido?.concepto ?? '')
   const [total, setTotal] = useState(pedido ? String(pedido.total) : '')
+  const [costo, setCosto] = useState(pedido?.costo != null ? String(pedido.costo) : '')
   const [fecha, setFecha] = useState(pedido?.fecha ?? hoy())
   const [estado, setEstado] = useState<EstadoPedido>(pedido?.estado ?? 'abierto')
   const [notas, setNotas] = useState(pedido?.notas ?? '')
@@ -43,7 +44,10 @@ export function FormPedido({
   const [error, setError] = useState<string | null>(null)
 
   const totalNum = aNumero(total)
+  const costoNum = aNumero(costo)
   const abonoNum = aNumero(abonoInicial)
+  const ganancia = totalNum - costoNum
+  const margen = totalNum > 0 && costo.trim() !== '' ? (ganancia / totalNum) * 100 : null
   const sumaLineas = lineas.reduce((s, l) => s + l.cantidad * l.precioUnitario, 0)
   const costoLineas = lineas.reduce((s, l) => s + l.cantidad * l.costoUnitario, 0)
 
@@ -68,6 +72,8 @@ export function FormPedido({
     setLineas(siguientes)
     const suma = siguientes.reduce((s, l) => s + l.cantidad * l.precioUnitario, 0)
     if (suma > 0) setTotal(String(Math.round(suma * 100) / 100))
+    const sumaCosto = siguientes.reduce((s, l) => s + l.cantidad * l.costoUnitario, 0)
+    if (sumaCosto > 0) setCosto(String(Math.round(sumaCosto * 100) / 100))
   }
 
   function cambiarLinea(indice: number, cambios: Partial<LineaPedido>) {
@@ -96,6 +102,7 @@ export function FormPedido({
       telefono: telefono.trim(),
       concepto: concepto.trim(),
       total: totalNum,
+      costo: costo.trim() !== '' ? costoNum : undefined,
       fecha,
       estado,
       notas: notas.trim(),
@@ -342,19 +349,47 @@ export function FormPedido({
         )}
       </div>
 
-      <div className="campo">
-        <label htmlFor="pd-total">Total a pagar</label>
-        <div className="entrada-monto">
-          <input
-            id="pd-total"
-            type="text"
-            inputMode="decimal"
-            placeholder="0.00"
-            value={total}
-            onChange={(e) => setTotal(e.target.value)}
-          />
+      <div className="fila">
+        <div className="campo">
+          <label htmlFor="pd-total">Total a pagar</label>
+          <div className="entrada-monto">
+            <input
+              id="pd-total"
+              type="text"
+              inputMode="decimal"
+              placeholder="0.00"
+              value={total}
+              onChange={(e) => setTotal(e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="campo">
+          <label htmlFor="pd-costo">Cuanto te costo (opcional)</label>
+          <div className="entrada-monto">
+            <input
+              id="pd-costo"
+              type="text"
+              inputMode="decimal"
+              placeholder="0.00"
+              value={costo}
+              onChange={(e) => setCosto(e.target.value)}
+            />
+          </div>
+          <span className="ayuda">
+            Con esto sale bien tu ganancia y tu mercancia sin vender baja al entregarla.
+          </span>
         </div>
       </div>
+
+      {totalNum > 0 && costo.trim() !== '' && (
+        <div className="aviso-caja">
+          Te deja <b className={ganancia >= 0 ? 'pos' : 'neg'}>{dinero(ganancia)}</b> · margen{' '}
+          <b>{porcentaje(margen)}</b>
+          {margen !== null && margen < db.config.margenObjetivo && (
+            <span className="neg"> · debajo de tu objetivo de {db.config.margenObjetivo}%</span>
+          )}
+        </div>
+      )}
 
       {!pedido && (
         <div className="fila">

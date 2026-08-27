@@ -97,6 +97,7 @@ interface FilaPedido {
   telefono: string
   concepto: string
   total: number | string
+  costo: number | string | null
   fecha: string
   estado: string
   notas: string
@@ -213,6 +214,7 @@ function aFilaPedido(p: Pedido, usuarioId: string): FilaPedido {
     telefono: p.telefono,
     concepto: p.concepto,
     total: p.total,
+    costo: p.costo ?? null,
     fecha: p.fecha,
     estado: p.estado,
     notas: p.notas,
@@ -232,6 +234,7 @@ function deFilaPedido(f: FilaPedido): Pedido {
     telefono: f.telefono ?? '',
     concepto: f.concepto ?? '',
     total: Number(f.total) || 0,
+    costo: f.costo === null || f.costo === undefined ? undefined : Number(f.costo),
     fecha: f.fecha,
     estado: f.estado as EstadoPedido,
     notas: f.notas ?? '',

@@ -151,6 +151,8 @@ export function normalizar(entrada: unknown): BaseDatos {
         telefono: p.telefono ?? '',
         concepto: p.concepto ?? '',
         total: Number(p.total) || 0,
+        costo:
+          p.costo === undefined || p.costo === null ? undefined : Number(p.costo) || 0,
         fecha: p.fecha ?? ahora.slice(0, 10),
         estado: p.estado ?? 'abierto',
         notas: p.notas ?? '',

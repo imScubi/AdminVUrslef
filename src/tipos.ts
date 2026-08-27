@@ -157,6 +157,12 @@ export interface Pedido extends Sellado {
   /** Que lleva el cliente, en texto libre. */
   concepto: string
   total: number
+  /**
+   * Lo que a ti te costo. Opcional: si eliges productos del inventario se
+   * llena solo con la suma de sus costos, pero se puede escribir a mano para
+   * que el margen salga bien sin desglosar la compra.
+   */
+  costo?: number
   fecha: string
   estado: EstadoPedido
   notas: string

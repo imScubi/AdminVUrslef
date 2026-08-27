@@ -456,7 +456,9 @@ export function ProveedorTienda({ children }: { children: ReactNode }) {
         // Si cambio el total o los productos, el costo repartido a cada abono
         // ya no corresponde: se vuelve a repartir.
         const cambioElCosto =
-          actualizado.total !== anterior.total || cambios.lineas !== undefined
+          actualizado.total !== anterior.total ||
+          actualizado.costo !== anterior.costo ||
+          cambios.lineas !== undefined
         const movimientos = cambioElCosto
           ? prev.movimientos.map((m) => {
               if (m.pedidoId !== id || m.tipo !== 'venta') return m

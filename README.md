@@ -58,7 +58,10 @@ Con estos seis se describe cualquier cosa que le pase al dinero:
 Para lo que se paga en partes: separaciones, encargos y ventas con anticipo.
 
 Un **pedido** guarda a quién le vendes, su teléfono, qué lleva (texto libre o productos elegidos
-del inventario) y el total acordado. Cada **abono**
+del inventario), el total acordado y, opcionalmente, **cuánto te costó**. Con esas tres cifras
+—total, abonos y costo— una separación queda completa: la ganancia sale bien y tu mercancía sin
+vender baja al entregarla, aunque no hayas desglosado la compra. Si eliges productos del
+inventario, el costo se llena solo con la suma de los suyos. Cada **abono**
 que registras se convierte automáticamente en una entrada de dinero en la caja de ese negocio: no
 capturas nada dos veces y la caja siempre refleja lo que de verdad te pagaron.
 

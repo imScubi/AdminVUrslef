@@ -658,8 +658,15 @@ export function inventarioDe(db: BaseDatos, origenId?: string): Existencia[] {
   )
 }
 
-/** Lo que a ti te costo la mercancia que se lleva un pedido. */
+/**
+ * Lo que a ti te costo lo que se lleva un pedido.
+ *
+ * Manda el costo escrito a mano; si no hay, se suma el de los productos del
+ * inventario. La suma sigue sirviendo de respaldo para los pedidos que se
+ * crearon antes de que existiera el campo.
+ */
 export function costoDePedido(pedido: Pedido): number {
+  if (pedido.costo != null) return pedido.costo
   return (pedido.lineas ?? []).reduce((s, l) => s + l.cantidad * l.costoUnitario, 0)
 }
 
