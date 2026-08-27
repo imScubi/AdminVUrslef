@@ -2,8 +2,16 @@ import type { BaseDatos, Categoria, Config } from '../tipos'
 import { VERSION_DATOS } from '../tipos'
 import { nuevoId } from './id'
 
-export const CLAVE_ALMACEN = 'adminvurslef:datos'
-const CLAVE_RESPALDO = 'adminvurslef:respaldo-auto'
+const CLAVE_BASE = 'adminvurslef:datos'
+const CLAVE_SYNC = 'adminvurslef:sincronizado'
+
+/** Cada cuenta guarda su propia copia local, para no revolver datos. */
+function claveDatos(usuarioId: string) {
+  return `${CLAVE_BASE}:${usuarioId}`
+}
+function claveSync(usuarioId: string) {
+  return `${CLAVE_SYNC}:${usuarioId}`
+}
 
 export const CONFIG_INICIAL: Config = {
   nombre: 'Mis negocios',
@@ -15,6 +23,7 @@ export const CONFIG_INICIAL: Config = {
 }
 
 export function categoriasIniciales(): Categoria[] {
+  const ahora = new Date().toISOString()
   const gastos: Array<[string, boolean?]> = [
     ['Compra de mercancia', true],
     ['Insumos y materiales', true],
@@ -41,45 +50,57 @@ export function categoriasIniciales(): Categoria[] {
       nombre,
       ambito: 'gasto' as const,
       ...(inventario ? { inventario: true } : {}),
+      actualizadoEn: ahora,
     })),
-    ...retiros.map((nombre) => ({ id: nuevoId(), nombre, ambito: 'retiro' as const })),
+    ...retiros.map((nombre) => ({
+      id: nuevoId(),
+      nombre,
+      ambito: 'retiro' as const,
+      actualizadoEn: ahora,
+    })),
   ]
 }
 
-export function baseVacia(): BaseDatos {
+export function baseVacia(conCategorias = true): BaseDatos {
   return {
     version: VERSION_DATOS,
+    configActualizadaEn: new Date().toISOString(),
     origenes: [],
     movimientos: [],
-    categorias: categoriasIniciales(),
+    categorias: conCategorias ? categoriasIniciales() : [],
     config: { ...CONFIG_INICIAL },
   }
 }
 
 /** Rellena huecos para que datos viejos o editados a mano no rompan la app. */
 export function normalizar(entrada: unknown): BaseDatos {
-  const base = baseVacia()
-  if (!entrada || typeof entrada !== 'object') return base
+  const base = baseVacia(false)
+  const ahora = new Date().toISOString()
+  if (!entrada || typeof entrada !== 'object') return baseVacia()
   const bruto = entrada as Partial<BaseDatos>
 
   const origenes = Array.isArray(bruto.origenes) ? bruto.origenes : []
   const movimientos = Array.isArray(bruto.movimientos) ? bruto.movimientos : []
-  const categorias = Array.isArray(bruto.categorias) && bruto.categorias.length
-    ? bruto.categorias
-    : base.categorias
+  const categorias =
+    Array.isArray(bruto.categorias) && bruto.categorias.length
+      ? bruto.categorias
+      : categoriasIniciales()
 
   return {
     version: VERSION_DATOS,
+    configActualizadaEn: bruto.configActualizadaEn ?? ahora,
     origenes: origenes.map((o) => ({
       id: o.id ?? nuevoId(),
       nombre: o.nombre ?? 'Sin nombre',
       tipo: o.tipo ?? 'otro',
       color: o.color ?? '#6366f1',
-      emoji: o.emoji ?? '💼',
+      emoji: o.emoji ?? '',
       metaMensual: Number(o.metaMensual) || 0,
       notas: o.notas ?? '',
       archivado: Boolean(o.archivado),
-      creadoEn: o.creadoEn ?? new Date().toISOString(),
+      creadoEn: o.creadoEn ?? ahora,
+      actualizadoEn: o.actualizadoEn ?? ahora,
+      ...(o.borrado ? { borrado: true } : {}),
     })),
     movimientos: movimientos
       .filter((m) => m && m.id && m.origenId)
@@ -88,65 +109,132 @@ export function normalizar(entrada: unknown): BaseDatos {
         tipo: m.tipo ?? 'gasto',
         origenId: m.origenId,
         destinoId: m.destinoId,
-        fecha: m.fecha ?? new Date().toISOString().slice(0, 10),
+        fecha: m.fecha ?? ahora.slice(0, 10),
         monto: Number(m.monto) || 0,
         costo: m.costo === undefined || m.costo === null ? undefined : Number(m.costo) || 0,
         concepto: m.concepto ?? '',
         categoria: m.categoria,
         nota: m.nota,
-        creadoEn: m.creadoEn ?? new Date().toISOString(),
+        creadoEn: m.creadoEn ?? ahora,
+        actualizadoEn: m.actualizadoEn ?? ahora,
+        ...(m.borrado ? { borrado: true } : {}),
       })),
     categorias: categorias.map((c) => ({
       id: c.id ?? nuevoId(),
       nombre: c.nombre ?? 'Sin nombre',
       ambito: c.ambito === 'retiro' ? 'retiro' : 'gasto',
       ...(c.inventario ? { inventario: true } : {}),
+      actualizadoEn: c.actualizadoEn ?? ahora,
+      ...(c.borrado ? { borrado: true } : {}),
     })),
     config: { ...base.config, ...(bruto.config ?? {}) },
   }
 }
 
-export function cargar(): BaseDatos | null {
+/**
+ * Lee la copia local de esta cuenta. Si no hay ninguna pero si existen datos
+ * de la version anterior (cuando todo vivia solo en el navegador), los adopta
+ * para que no se pierda nada al estrenar la cuenta.
+ */
+export function cargar(usuarioId: string): BaseDatos | null {
   try {
-    const crudo = localStorage.getItem(CLAVE_ALMACEN)
-    if (!crudo) return null
-    return normalizar(JSON.parse(crudo))
+    const propio = localStorage.getItem(claveDatos(usuarioId))
+    if (propio) return normalizar(JSON.parse(propio))
+
+    const heredado = localStorage.getItem(CLAVE_BASE)
+    if (heredado) {
+      const db = normalizar(JSON.parse(heredado))
+      // Se vuelve a sellar para que la primera sincronizacion lo suba todo.
+      const ahora = new Date().toISOString()
+      return {
+        ...db,
+        configActualizadaEn: ahora,
+        origenes: db.origenes.map((o) => ({ ...o, actualizadoEn: ahora })),
+        categorias: db.categorias.map((c) => ({ ...c, actualizadoEn: ahora })),
+        movimientos: db.movimientos.map((m) => ({ ...m, actualizadoEn: ahora })),
+      }
+    }
+    return null
   } catch (error) {
     console.error('No se pudieron leer los datos guardados', error)
     return null
   }
 }
 
-let ultimoRespaldo = 0
-
-export function guardar(db: BaseDatos): { ok: true } | { ok: false; error: string } {
+export function guardar(
+  usuarioId: string,
+  db: BaseDatos,
+): { ok: true } | { ok: false; error: string } {
   try {
-    const texto = JSON.stringify(db)
-    // Antes de sobrescribir, deja una copia del estado anterior una vez por hora.
-    const ahora = Date.now()
-    if (ahora - ultimoRespaldo > 3600_000) {
-      const previo = localStorage.getItem(CLAVE_ALMACEN)
-      if (previo) localStorage.setItem(CLAVE_RESPALDO, previo)
-      ultimoRespaldo = ahora
-    }
-    localStorage.setItem(CLAVE_ALMACEN, texto)
+    localStorage.setItem(claveDatos(usuarioId), JSON.stringify(db))
     return { ok: true }
   } catch (error) {
     const mensaje =
       error instanceof Error && error.name === 'QuotaExceededError'
         ? 'Se lleno el espacio del navegador. Exporta un respaldo y borra movimientos viejos.'
-        : 'El navegador bloqueo el guardado (¿modo privado?). Exporta un respaldo para no perder nada.'
+        : 'El navegador bloqueo el guardado local. Tus cambios si se estan mandando a la nube.'
     console.error('No se pudo guardar', error)
     return { ok: false, error: mensaje }
   }
 }
 
-export function leerRespaldoAutomatico(): BaseDatos | null {
+export function leerMarcaSync(usuarioId: string): string {
   try {
-    const crudo = localStorage.getItem(CLAVE_RESPALDO)
-    return crudo ? normalizar(JSON.parse(crudo)) : null
+    return localStorage.getItem(claveSync(usuarioId)) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+export function guardarMarcaSync(usuarioId: string, marca: string) {
+  try {
+    localStorage.setItem(claveSync(usuarioId), marca)
+  } catch {
+    /* sin almacenamiento local se sincroniza todo cada vez; no es grave */
+  }
+}
+
+const CLAVE_USUARIO = 'adminvurslef:ultimo-usuario'
+
+/**
+ * Se guarda quien entro la ultima vez. Sirve para abrir la app sin senal:
+ * el token de acceso dura una hora y sin internet no se puede renovar, asi
+ * que sin esto el celular te mandaria a la pantalla de login justo cuando
+ * mas necesitas capturar una venta.
+ */
+export function recordarUsuario(id: string, correo: string) {
+  try {
+    localStorage.setItem(CLAVE_USUARIO, JSON.stringify({ id, correo }))
+  } catch {
+    /* sin almacenamiento no hay modo sin senal, pero la app sigue */
+  }
+}
+
+export function leerUsuarioRecordado(): { id: string; correo: string } | null {
+  try {
+    const crudo = localStorage.getItem(CLAVE_USUARIO)
+    if (!crudo) return null
+    const datos = JSON.parse(crudo)
+    return datos?.id ? { id: datos.id, correo: datos.correo ?? '' } : null
   } catch {
     return null
+  }
+}
+
+export function olvidarUsuario() {
+  try {
+    localStorage.removeItem(CLAVE_USUARIO)
+  } catch {
+    /* nada que hacer */
+  }
+}
+
+export function olvidarCuenta(usuarioId: string) {
+  try {
+    localStorage.removeItem(claveDatos(usuarioId))
+    localStorage.removeItem(claveSync(usuarioId))
+  } catch {
+    /* nada que hacer */
   }
 }
 

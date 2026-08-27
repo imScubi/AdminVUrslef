@@ -8,7 +8,20 @@
 
 export type TipoOrigen = 'reventa' | 'servicio' | 'inversion' | 'fijo' | 'otro'
 
-export interface Origen {
+/**
+ * Marca de sincronizacion que llevan todas las filas.
+ *
+ * `actualizadoEn` decide quien gana cuando el celular y la nube tienen
+ * versiones distintas (gana la mas reciente). `borrado` es un borrado logico:
+ * si se borrara la fila de verdad, el otro dispositivo la volveria a subir la
+ * proxima vez que sincronice.
+ */
+export interface Sellado {
+  actualizadoEn: string
+  borrado?: boolean
+}
+
+export interface Origen extends Sellado {
   id: string
   nombre: string
   tipo: TipoOrigen
@@ -40,7 +53,7 @@ export type TipoMovimiento =
   | 'traspaso'
   | 'ajuste'
 
-export interface Movimiento {
+export interface Movimiento extends Sellado {
   id: string
   tipo: TipoMovimiento
   /** Origen afectado. En un traspaso es el que ENVIA el dinero. */
@@ -60,7 +73,7 @@ export interface Movimiento {
   creadoEn: string
 }
 
-export interface Categoria {
+export interface Categoria extends Sellado {
   id: string
   nombre: string
   ambito: 'gasto' | 'retiro'
@@ -85,6 +98,8 @@ export interface Config {
 
 export interface BaseDatos {
   version: number
+  /** Cambia cuando tocas las preferencias; se sincroniza como una sola fila. */
+  configActualizadaEn: string
   origenes: Origen[]
   movimientos: Movimiento[]
   categorias: Categoria[]

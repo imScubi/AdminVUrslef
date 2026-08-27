@@ -1,6 +1,7 @@
 # AdminVUrslef
 
-Herramienta personal para llevar en orden **varios negocios a la vez**.
+Herramienta personal para llevar en orden **varios negocios a la vez**, pensada para usarse desde
+el celular.
 
 Cada fuente de dinero es un **origen** con su propia caja, sus propios gastos y sus propias
 estadísticas. Nada se mezcla salvo que tú lo muevas a propósito. La idea es responder de un
@@ -12,49 +13,28 @@ vistazo las preguntas que más cuesta contestar cuando tienes varios ingresos:
 - ¿Este negocio ya me devolvió lo que le invertí? ¿Cuánto de más?
 - ¿A cuál de todos me conviene meterle el siguiente peso?
 
-Los datos se guardan **solo en tu dispositivo** (almacenamiento del navegador). No hay cuentas,
-no hay servidor, no hay nube, no hay nada que pagar.
-
 ---
 
-## Cómo usarla
+## Cómo funciona
 
-Hay dos formas. Elige la que te acomode.
+Es una app web instalable (PWA) con base de datos en la nube:
 
-### 1. Archivo único (la más simple)
+- **Entras con correo y contraseña.** Tus datos viven en tu cuenta, no en el navegador. Puedes
+  cerrar la app, cambiar de teléfono o reinstalar: al volver a entrar sigue todo ahí.
+- **Funciona sin señal.** Lo que captures sin internet se guarda en el teléfono y se sube solo
+  cuando vuelve la conexión. El chip de arriba a la derecha te dice siempre en qué estado está:
+  `Guardado`, `2 por subir`, `Sin conexión`.
+- **Nadie más ve tus números.** Cada fila de la base lleva tu `usuario_id` y Postgres tiene Row
+  Level Security: aunque alguien tuviera la dirección de la app, la base solo devuelve las filas
+  de la sesión que pregunta.
 
-En la raíz del proyecto está `AdminVUrslef.html`. Es la app completa en un solo archivo.
+### Instalarla en el celular
 
-1. Descárgalo.
-2. Ábrelo con doble clic (Chrome, Edge o Firefox).
-3. Ya está. Puedes ponerlo en el escritorio y marcarlo como favorito.
+1. Abre la URL en Chrome (Android) o Safari (iPhone).
+2. Entra o crea tu cuenta.
+3. Menú del navegador → **Agregar a la pantalla de inicio**.
 
-Si cambias el código y quieres regenerarlo:
-
-```bash
-npm install
-npm run empaquetar    # deja un AdminVUrslef.html nuevo en la raíz
-```
-
-> Nota: al abrirse como archivo local, los datos se guardan bajo el "origen" `file://` del
-> navegador. Funciona bien en Chrome, Edge y Firefox. En Safari el guardado local de archivos
-> abiertos así es poco confiable: ahí usa la opción 2.
-
-### 2. Como app web local
-
-```bash
-npm install
-npm start           # abre http://localhost:4173
-```
-
-`npm start` la levanta también en tu red local, así que la terminal te va a mostrar una dirección
-tipo `http://192.168.x.x:4173` que puedes abrir **desde el celular** mientras estén en el mismo
-WiFi. Desde el celular puedes usar "Agregar a la pantalla de inicio" y queda como una app.
-
-Ojo: cada dispositivo guarda sus propios datos. La computadora y el celular **no se sincronizan**.
-Para pasar datos de uno a otro, usa el respaldo (Ajustes → Descargar respaldo → Restaurar).
-
-Para desarrollar: `npm run dev`.
+Queda como una app normal, a pantalla completa y con su ícono.
 
 ---
 
@@ -118,39 +98,60 @@ En el panel aparece un bloque de "qué revisar" cuando detecta:
 
 ---
 
+## Sincronización
+
+Cada fila lleva `actualizado_en` y `borrado`:
+
+- Al sincronizar se sube lo que cambió en el teléfono desde la última vez y se baja lo que cambió
+  en la nube. Cuando hay dos versiones de la misma fila, **gana la más reciente**.
+- Los borrados son lógicos. Si se borrara la fila de verdad, el otro dispositivo la volvería a
+  subir en la siguiente sincronización.
+- La marca de "hasta dónde vamos sincronizados" se toma **antes** de subir. Si capturas algo a
+  media sincronización se reenvía la próxima vez: es preferible mandar de más (el upsert es
+  idempotente) a perder un movimiento.
+
+Restaurar un respaldo y "borrar todo" son operaciones autoritativas: primero vacían la nube y
+luego suben lo nuevo, para que no reaparezca nada de lo anterior.
+
+---
+
 ## Respaldo
 
-Los datos viven en el navegador de ese dispositivo. Si limpias los datos del navegador, cambias de
-equipo o usas modo privado, se pierden.
-
-**Ajustes → Descargar respaldo** te deja un `.json` con todo. Guárdalo en tu nube o en una USB de
-vez en cuando. Ese mismo archivo lo restauras con **Restaurar desde archivo**, y sirve también para
-pasar tus datos de la computadora al celular.
-
-Desde **Movimientos** también puedes exportar a CSV lo que tengas filtrado, por si quieres hacer
-cuentas aparte en una hoja de cálculo.
+Tus datos ya están a salvo en tu cuenta. El respaldo en archivo (Ajustes → Descargar respaldo) es
+un extra: sirve para tener tus números fuera de la app o pasarlos a otra cuenta. Desde
+**Movimientos** también puedes exportar a CSV lo que tengas filtrado.
 
 ---
 
-## Atajos
+## Desarrollo
 
-- `N` abre el registro rápido de movimiento.
-- En el formulario, **Guardar y seguir** deja capturar varios movimientos seguidos sin cerrar.
-- `Esc` cierra cualquier ventana.
+```bash
+npm install
+npm run dev      # desarrollo
+npm run build    # compila a dist/
+npm start        # sirve dist/ en la red local
+```
 
----
+La app apunta a un proyecto de Supabase configurado en `src/lib/nube.ts`; se puede cambiar con las
+variables `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`. Esa llave es pública por diseño: lo que
+protege los datos es RLS, no esconderla.
 
-## Stack
-
-React + TypeScript + Vite. Sin dependencias de UI ni de gráficas: las gráficas son SVG escrito a
-mano y el estilo es una sola hoja CSS. Todo el estado vive en `localStorage`.
+### Estructura
 
 ```
 src/
   tipos.ts              modelo de datos
   lib/calculos.ts       motor de estadísticas (caja, margen, ROI, alertas, comparador)
-  lib/almacen.ts        guardado, respaldo y restauración
-  estado/tienda.tsx     estado global
+  lib/nube.ts           cliente de Supabase, mapeo de tablas y sincronización
+  lib/almacen.ts        copia local por cuenta, respaldo y restauración
+  estado/tienda.tsx     estado global, sesión y cola de cambios sin señal
   componentes/          piezas reutilizables (formularios, gráficas, listas)
-  vistas/               Panel, DetalleOrigen, Movimientos, Comparar, Ajustes
+  vistas/               Acceso, Panel, DetalleOrigen, Movimientos, Comparar, Ajustes
+public/sw.js            service worker; la lista de precarga la inyecta vite.config.ts
 ```
+
+### Base de datos
+
+Tablas `av_origenes`, `av_movimientos`, `av_categorias` y `av_config`, todas con `usuario_id`,
+RLS activo y una política por tabla (`usuario_id = auth.uid()`). Llevan el prefijo `av_` para
+convivir con otras tablas en el mismo proyecto de Supabase.

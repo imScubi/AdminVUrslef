@@ -67,6 +67,10 @@ export function GraficaMensual({ datos, alto = 240 }: { datos: PuntoMes[]; alto?
   const anchoBarra = Math.min(18, Math.max(5, anchoBanda * 0.28))
   const xBanda = (i: number) => margen.izquierda + anchoBanda * i + anchoBanda / 2
 
+  // Con 12 meses en una pantalla de celular las etiquetas se enciman:
+  // se dibuja una de cada N segun el espacio real disponible.
+  const pasoEtiquetas = Math.max(1, Math.ceil(datos.length / Math.max(1, Math.floor(anchoUtil / 38))))
+
   const marcas = [techo, techo / 2, 0, piso].filter(
     (v, i, arr) => arr.indexOf(v) === i && v >= piso && v <= techo,
   )
@@ -137,15 +141,17 @@ export function GraficaMensual({ datos, alto = 240 }: { datos: PuntoMes[]; alto?
                 fill="var(--rojo)"
                 opacity={0.75}
               />
-              <text
-                x={cx}
-                y={alto - 8}
-                textAnchor="middle"
-                fontSize="10"
-                fill={activo === i ? 'var(--texto)' : 'var(--texto-3)'}
-              >
-                {nombreMes(d.mes, true)}
-              </text>
+              {(i % pasoEtiquetas === 0 || activo === i) && (
+                <text
+                  x={cx}
+                  y={alto - 8}
+                  textAnchor="middle"
+                  fontSize="10"
+                  fill={activo === i ? 'var(--texto)' : 'var(--texto-3)'}
+                >
+                  {nombreMes(d.mes, true)}
+                </text>
+              )}
             </g>
           )
         })}

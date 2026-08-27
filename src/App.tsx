@@ -3,10 +3,13 @@ import { ProveedorTienda, useTienda } from './estado/tienda'
 import { calcular, movimientosDe, type Rango } from './lib/calculos'
 import { construirRango } from './lib/rangos'
 import { dineroCorto } from './lib/formato'
+import { hayNube } from './lib/nube'
 import type { TipoMovimiento } from './tipos'
 import { SelectorRango } from './componentes/SelectorRango'
 import { FormMovimiento } from './componentes/FormMovimiento'
 import { FormOrigen } from './componentes/FormOrigen'
+import { EstadoNube } from './componentes/EstadoNube'
+import { Acceso, NuevaClave } from './vistas/Acceso'
 import { Panel } from './vistas/Panel'
 import { DetalleOrigen } from './vistas/DetalleOrigen'
 import { Movimientos } from './vistas/Movimientos'
@@ -23,10 +26,17 @@ type Vista =
 const TITULOS: Record<Vista['tipo'], { titulo: string; sub: string }> = {
   panel: { titulo: 'Panel', sub: 'Como van todos tus negocios juntos' },
   movimientos: { titulo: 'Movimientos', sub: 'Todo lo que ha entrado y salido' },
-  comparar: { titulo: 'Comparar origenes', sub: 'A cual conviene meterle mas' },
-  ajustes: { titulo: 'Ajustes', sub: 'Respaldo, categorias y preferencias' },
+  comparar: { titulo: 'Comparar', sub: 'A cual conviene meterle mas' },
+  ajustes: { titulo: 'Ajustes', sub: 'Cuenta, respaldo y preferencias' },
   origen: { titulo: 'Origen', sub: '' },
 }
+
+const PESTANIAS: Array<{ id: Vista['tipo']; icono: string; etiqueta: string }> = [
+  { id: 'panel', icono: '📊', etiqueta: 'Panel' },
+  { id: 'movimientos', icono: '📋', etiqueta: 'Movs' },
+  { id: 'comparar', icono: '⚖️', etiqueta: 'Comparar' },
+  { id: 'ajustes', icono: '⚙️', etiqueta: 'Ajustes' },
+]
 
 function leerHash(): Vista {
   const h = window.location.hash.replace(/^#\/?/, '')
@@ -41,10 +51,10 @@ function escribirHash(v: Vista) {
 }
 
 function Aplicacion() {
-  const { db, vacio, errorGuardado } = useTienda()
+  const { db, vacio, errorGuardado, sesion, sesionExpirada, autenticando, recuperandoClave, salir } =
+    useTienda()
   const [vista, setVista] = useState<Vista>(() => leerHash())
   const [rango, setRango] = useState<Rango>(() => construirRango('mes'))
-  const [lateralAbierto, setLateralAbierto] = useState(false)
   const [formMovimiento, setFormMovimiento] = useState<
     { abierto: false } | { abierto: true; origenId?: string; tipo?: TipoMovimiento }
   >({ abierto: false })
@@ -53,7 +63,6 @@ function Aplicacion() {
   const ir = useCallback((v: Vista) => {
     setVista(v)
     escribirHash(v)
-    setLateralAbierto(false)
     window.scrollTo({ top: 0 })
   }, [])
 
@@ -63,7 +72,6 @@ function Aplicacion() {
     return () => window.removeEventListener('hashchange', alCambiar)
   }, [])
 
-  // Tema
   useEffect(() => {
     const raiz = document.documentElement
     if (db.config.tema === 'auto') raiz.removeAttribute('data-tema')
@@ -71,10 +79,9 @@ function Aplicacion() {
   }, [db.config.tema])
 
   useEffect(() => {
-    document.title = `${db.config.nombre} · AdminVUrslef`
-  }, [db.config.nombre])
+    document.title = sesion ? `${db.config.nombre} · AdminVUrslef` : 'AdminVUrslef'
+  }, [db.config.nombre, sesion])
 
-  // Atajo: "n" abre el registro rapido.
   useEffect(() => {
     const alTeclear = (e: KeyboardEvent) => {
       const objetivo = e.target as HTMLElement | null
@@ -102,27 +109,34 @@ function Aplicacion() {
     return mapa
   }, [db.origenes, db.movimientos, db.categorias])
 
+  if (autenticando) {
+    return (
+      <div className="pantalla-acceso">
+        <div className="caja-acceso centro">
+          <div className="marca-logo" style={{ margin: '0 auto' }}>
+            AV
+          </div>
+          <p className="tenue">Abriendo tus negocios…</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (hayNube && recuperandoClave) return <NuevaClave />
+  // Con la sesion caducada NO se cierra la puerta: los datos siguen en el
+  // telefono y se puede seguir capturando. Solo se avisa para volver a entrar.
+  if (hayNube && !sesion && !sesionExpirada) return <Acceso />
+
   const origenActual =
     vista.tipo === 'origen' ? db.origenes.find((o) => o.id === vista.id) : undefined
   const encabezado =
     vista.tipo === 'origen'
-      ? { titulo: origenActual?.nombre ?? 'Origen', sub: 'Estadisticas e historial del origen' }
+      ? { titulo: origenActual?.nombre ?? 'Origen', sub: 'Estadisticas e historial' }
       : TITULOS[vista.tipo]
-
-  const navegacion: Array<{ id: Vista['tipo']; icono: string; etiqueta: string }> = [
-    { id: 'panel', icono: '📊', etiqueta: 'Panel' },
-    { id: 'movimientos', icono: '📋', etiqueta: 'Movimientos' },
-    { id: 'comparar', icono: '⚖️', etiqueta: 'Comparar' },
-    { id: 'ajustes', icono: '⚙️', etiqueta: 'Ajustes' },
-  ]
 
   return (
     <div className="app">
-      {lateralAbierto && (
-        <div className="velo-lateral" onClick={() => setLateralAbierto(false)} />
-      )}
-
-      <aside className={lateralAbierto ? 'lateral abierto' : 'lateral'}>
+      <aside className="lateral">
         <div className="marca">
           <div className="marca-logo">AV</div>
           <div style={{ minWidth: 0 }}>
@@ -132,14 +146,14 @@ function Aplicacion() {
         </div>
 
         <nav className="nav">
-          {navegacion.map((n) => (
+          {PESTANIAS.map((n) => (
             <button
               key={n.id}
               className={`nav-item${vista.tipo === n.id ? ' activo' : ''}`}
               onClick={() => ir({ tipo: n.id } as Vista)}
             >
               <span className="nav-icono">{n.icono}</span>
-              {n.etiqueta}
+              {n.id === 'movimientos' ? 'Movimientos' : n.etiqueta}
               {n.id === 'movimientos' && (
                 <span className="nav-conteo">{db.movimientos.length}</span>
               )}
@@ -191,27 +205,32 @@ function Aplicacion() {
       </aside>
 
       <main className="principal">
+        {sesionExpirada && (
+          <div className="banda-error">
+            Tu sesion caduco. Puedes seguir capturando: se guarda en el telefono.{' '}
+            <button
+              className="btn chico"
+              style={{ marginLeft: 8 }}
+              onClick={() => void salir()}
+            >
+              Entrar de nuevo
+            </button>
+          </div>
+        )}
         {errorGuardado && <div className="banda-error">{errorGuardado}</div>}
 
         <header className="barra">
-          <button
-            className="btn chico fantasma solo-movil"
-            onClick={() => setLateralAbierto(true)}
-            aria-label="Abrir menu"
-          >
-            ☰
-          </button>
           <div className="barra-titulo">
-            <h1 style={{ fontSize: '1.22rem' }}>
+            <h1 style={{ fontSize: '1.18rem' }}>
               {vista.tipo === 'origen' && origenActual ? `${origenActual.emoji} ` : ''}
               {encabezado.titulo}
             </h1>
             <span className="mini tenue">{encabezado.sub}</span>
           </div>
           <div className="barra-acciones">
-            {vista.tipo !== 'ajustes' && <SelectorRango rango={rango} onCambio={setRango} />}
+            <EstadoNube />
             <button
-              className="btn primario"
+              className="btn primario solo-escritorio"
               onClick={() => setFormMovimiento({ abierto: true })}
               disabled={vacio}
             >
@@ -219,6 +238,12 @@ function Aplicacion() {
             </button>
           </div>
         </header>
+
+        {vista.tipo !== 'ajustes' && (
+          <div className="barra-rango">
+            <SelectorRango rango={rango} onCambio={setRango} />
+          </div>
+        )}
 
         <div className="contenido">
           {vista.tipo === 'panel' && (
@@ -251,14 +276,37 @@ function Aplicacion() {
         </div>
       </main>
 
-      <button
-        className="flotante"
-        onClick={() => setFormMovimiento({ abierto: true })}
-        aria-label="Registrar movimiento"
-        disabled={vacio}
-      >
-        +
-      </button>
+      {/* Navegacion de celular: al alcance del pulgar */}
+      <nav className="barra-inferior">
+        {PESTANIAS.slice(0, 2).map((p) => (
+          <button
+            key={p.id}
+            className={`tab${vista.tipo === p.id ? ' activo' : ''}`}
+            onClick={() => ir({ tipo: p.id } as Vista)}
+          >
+            <span className="tab-icono">{p.icono}</span>
+            {p.etiqueta}
+          </button>
+        ))}
+        <button
+          className="tab-central"
+          onClick={() => setFormMovimiento({ abierto: true })}
+          disabled={vacio}
+          aria-label="Registrar movimiento"
+        >
+          +
+        </button>
+        {PESTANIAS.slice(2).map((p) => (
+          <button
+            key={p.id}
+            className={`tab${vista.tipo === p.id ? ' activo' : ''}`}
+            onClick={() => ir({ tipo: p.id } as Vista)}
+          >
+            <span className="tab-icono">{p.icono}</span>
+            {p.etiqueta}
+          </button>
+        ))}
+      </nav>
 
       {formMovimiento.abierto && (
         <FormMovimiento

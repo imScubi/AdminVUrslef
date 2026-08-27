@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { useTienda } from '../estado/tienda'
 import { baseVacia, exportarArchivo, leerArchivo } from '../lib/almacen'
 import { datosDeEjemplo } from '../lib/demo'
+import { hayNube } from '../lib/nube'
 import { aNumero } from '../lib/formato'
 import { Confirmar } from '../componentes/ui'
 
@@ -21,6 +22,10 @@ function Concepto({ titulo, children }: { titulo: string; children: React.ReactN
 export function Ajustes() {
   const {
     db,
+    sesion,
+    sync,
+    salir,
+    sincronizarAhora,
     reemplazar,
     agregarCategoria,
     editarCategoria,
@@ -45,7 +50,7 @@ export function Ajustes() {
   async function importar(archivo: File) {
     try {
       const datos = await leerArchivo(archivo)
-      reemplazar(datos)
+      await reemplazar(datos)
       setMensaje({
         tipo: 'bien',
         texto: `Datos restaurados: ${datos.origenes.length} origenes y ${datos.movimientos.length} movimientos.`,
@@ -62,18 +67,55 @@ export function Ajustes() {
 
   return (
     <>
+      {hayNube && (
+        <div className="tarjeta">
+          <div className="tarjeta-cab">
+            <h2>Tu cuenta</h2>
+          </div>
+          <div className="tarjeta-cuerpo" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div>
+              <div className="mini tenue-2" style={{ fontWeight: 650, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Sesion iniciada como
+              </div>
+              <div style={{ fontWeight: 650 }}>{sesion?.user.email}</div>
+            </div>
+            <p className="mini tenue">
+              Todo lo que capturas se guarda en tu cuenta. Puedes cerrar la app, quedarte sin senal
+              o cambiar de telefono: al volver a entrar sigue todo ahi.
+              {sync.pendientes > 0
+                ? ` Ahora mismo hay ${sync.pendientes} cambio(s) esperando a subir.`
+                : ' Todo esta sincronizado.'}
+              {sync.error && ` Ultimo problema: ${sync.error}`}
+            </p>
+            <div className="fila compacta">
+              <button
+                className="btn"
+                onClick={() => void sincronizarAhora()}
+                disabled={sync.sincronizando}
+              >
+                {sync.sincronizando ? 'Sincronizando…' : 'Sincronizar ahora'}
+              </button>
+              <button className="btn" onClick={() => void salir()}>
+                Cerrar sesion
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="tarjeta">
         <div className="tarjeta-cab">
           <h2>Respaldo</h2>
         </div>
         <div className="tarjeta-cuerpo" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div className="alerta aviso">
+          <div className="alerta bien">
             <span className="alerta-icono">💾</span>
             <div>
-              <div className="alerta-titulo">Tus datos viven solo en este navegador</div>
+              <div className="alerta-titulo">Tus datos ya estan en tu cuenta</div>
               <div className="alerta-detalle">
-                Si limpias los datos del navegador, cambias de dispositivo o usas modo privado, se
-                pierden. Descarga un respaldo cada tanto y guardalo donde no lo pierdas.
+                El respaldo en archivo es un extra por si algun dia quieres tus numeros fuera de la
+                app, o para pasarlos a otra cuenta. Restaurar un respaldo <b>reemplaza</b> todo lo
+                que tengas hoy, tambien en la nube.
                 {ultimoRespaldo && (
                   <>
                     {' '}
@@ -323,13 +365,14 @@ export function Ajustes() {
       {confirmando === 'borrar' && (
         <Confirmar
           titulo="Borrar todo"
-          mensaje="Se van a borrar todos tus origenes y movimientos de este navegador. Descarga un respaldo antes si no estas seguro."
+          mensaje="Se van a borrar todos tus origenes y movimientos, tambien los de tu cuenta en la nube. Descarga un respaldo antes si no estas seguro."
           textoConfirmar="Si, borrar todo"
           onCancelar={() => setConfirmando(null)}
           onConfirmar={() => {
-            reemplazar(baseVacia())
+            void reemplazar(baseVacia()).then(() =>
+              setMensaje({ tipo: 'bien', texto: 'Listo, todo limpio.' }),
+            )
             setConfirmando(null)
-            setMensaje({ tipo: 'bien', texto: 'Listo, todo limpio.' })
           }}
         />
       )}
@@ -340,9 +383,10 @@ export function Ajustes() {
           textoConfirmar="Cargar ejemplo"
           onCancelar={() => setConfirmando(null)}
           onConfirmar={() => {
-            reemplazar(datosDeEjemplo())
+            void reemplazar(datosDeEjemplo()).then(() =>
+              setMensaje({ tipo: 'bien', texto: 'Datos de ejemplo cargados.' }),
+            )
             setConfirmando(null)
-            setMensaje({ tipo: 'bien', texto: 'Datos de ejemplo cargados.' })
           }}
         />
       )}

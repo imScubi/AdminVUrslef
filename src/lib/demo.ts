@@ -15,6 +15,7 @@ export function datosDeEjemplo(): BaseDatos {
   const catHerramientas = db.categorias.find((c) => c.nombre === 'Herramientas y software')!.id
   const catPersonal = db.categorias.find((c) => c.nombre === 'Gasto personal')!.id
 
+  const sello = new Date().toISOString()
   const reventa = {
     id: nuevoId(),
     nombre: 'Reventa de tenis',
@@ -24,7 +25,8 @@ export function datosDeEjemplo(): BaseDatos {
     metaMensual: 6000,
     notas: 'Compro lotes cada quincena. Precio piso: 1.6x el costo.',
     archivado: false,
-    creadoEn: new Date().toISOString(),
+    creadoEn: sello,
+    actualizadoEn: sello,
   }
   const servicios = {
     id: nuevoId(),
@@ -35,13 +37,14 @@ export function datosDeEjemplo(): BaseDatos {
     metaMensual: 9000,
     notas: 'Logos y flyers. Cobro 50% por adelantado.',
     archivado: false,
-    creadoEn: new Date().toISOString(),
+    creadoEn: sello,
+    actualizadoEn: sello,
   }
   db.origenes = [reventa, servicios]
 
   const movs: Movimiento[] = []
-  const push = (m: Omit<Movimiento, 'id' | 'creadoEn'>) =>
-    movs.push({ ...m, id: nuevoId(), creadoEn: new Date().toISOString() })
+  const push = (m: Omit<Movimiento, 'id' | 'creadoEn' | 'actualizadoEn'>) =>
+    movs.push({ ...m, id: nuevoId(), creadoEn: sello, actualizadoEn: sello })
 
   push({
     tipo: 'aporte',

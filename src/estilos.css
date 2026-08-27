@@ -552,9 +552,6 @@ table.tabla td.num, table.tabla th.num { text-align: right; font-variant-numeric
 
 .separador { height: 1px; background: var(--borde); border: 0; margin: 0; }
 
-/* Boton flotante (movil) */
-.flotante { display: none; }
-
 /* ---------------------------------------------------------------- */
 /* Responsive                                                        */
 /* ---------------------------------------------------------------- */
@@ -565,48 +562,46 @@ table.tabla td.num, table.tabla th.num { text-align: right; font-variant-numeric
 }
 
 @media (max-width: 860px) {
+  /* En celular manda la barra de abajo: la lateral no se usa. */
   .app { grid-template-columns: 1fr; }
-  .lateral {
-    position: fixed; inset: 0 auto 0 0; width: 262px; z-index: 60;
-    transform: translateX(-102%); transition: transform 0.18s ease-out;
-    box-shadow: var(--sombra-3);
-  }
-  .lateral.abierto { transform: none; }
-  .velo-lateral {
-    position: fixed; inset: 0; background: rgb(8 10 14 / 0.5); z-index: 55;
-  }
-  .barra { padding: 12px 16px; }
-  .contenido { padding: 16px 16px 96px; }
+  .lateral { display: none; }
+  .barra { padding: 12px 14px; }
+  .barra-rango { padding: 0 14px 10px; }
+  .contenido { padding: 14px 14px calc(96px + env(safe-area-inset-bottom)); }
+  .barra-inferior { display: grid; }
+  .solo-escritorio { display: none !important; }
   .rejilla.c2, .rejilla.c3, .rejilla.c4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .flotante {
-    display: flex; position: fixed; right: 18px; bottom: 18px; z-index: 50;
-    width: 56px; height: 56px; border-radius: 50%;
-    align-items: center; justify-content: center;
-    background: var(--acento); color: var(--acento-texto);
-    border: 0; font-size: 1.5rem; box-shadow: var(--sombra-3); cursor: pointer;
-  }
 }
 
 @media (max-width: 560px) {
   body { font-size: 14.5px; }
-  .rejilla.c2, .rejilla.c3, .rejilla.c4, .rejilla.auto { grid-template-columns: 1fr; }
-  .metrica-valor { font-size: 1.35rem; }
+  .rejilla.c2, .rejilla.c3, .rejilla.c4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rejilla.auto, .rejilla.anchas { grid-template-columns: 1fr; }
+  .rejilla { gap: 10px; }
+  .metrica { padding: 12px 12px; gap: 3px; }
+  .metrica-valor { font-size: 1.12rem; }
+  .metrica-valor.mediana { font-size: 1.02rem; }
+  .metrica-etiqueta { font-size: 0.66rem; letter-spacing: 0.03em; }
+  .metrica-pie { font-size: 0.7rem; }
   .velo { padding: 0; align-items: flex-end; }
   .modal { max-width: none; border-radius: var(--r-xl) var(--r-xl) 0 0; }
+  .modal-cuerpo { padding: 16px 14px; }
   .mov-acciones { opacity: 1; }
   .tipos-mov { grid-template-columns: repeat(3, 1fr); }
+  .solo-escritorio-en-linea { display: none; }
+  /* Objetivos de toque comodos para el pulgar */
+  .btn { padding: 10px 14px; }
+  .btn.chico { padding: 7px 11px; }
+  input[type='text'], input[type='number'], input[type='date'], input[type='search'],
+  select, textarea { padding: 11px 12px; font-size: 16px; }
+  .segmentado button { padding: 7px 12px; }
 }
 
 @media print {
-  .lateral, .barra-acciones, .flotante { display: none; }
+  .lateral, .barra-acciones, .barra-inferior, .barra-rango { display: none; }
   .app { grid-template-columns: 1fr; }
 }
 
-/* Boton de menu: solo en pantallas chicas */
-.solo-movil { display: none; }
-@media (max-width: 860px) {
-  .solo-movil { display: inline-flex; }
-}
 
 @media (max-width: 560px) {
   /* En movil el concepto puede ocupar dos lineas antes de recortarse */
@@ -619,4 +614,116 @@ table.tabla td.num, table.tabla th.num { text-align: right; font-variant-numeric
   }
   .movimiento { align-items: flex-start; gap: 10px; padding: 11px 12px; }
   .mov-monto { font-size: 0.9rem; }
+}
+
+/* ---------------------------------------------------------------- */
+/* Pantalla de acceso                                                */
+/* ---------------------------------------------------------------- */
+
+.pantalla-acceso {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px calc(24px + env(safe-area-inset-bottom));
+  background:
+    radial-gradient(1100px 520px at 50% -8%, color-mix(in srgb, var(--acento) 16%, transparent), transparent),
+    var(--fondo);
+}
+
+.caja-acceso {
+  width: 100%;
+  max-width: 400px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--r-xl);
+  box-shadow: var(--sombra-2);
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.acceso-marca { display: flex; align-items: center; gap: 12px; margin-bottom: 2px; }
+
+/* ---------------------------------------------------------------- */
+/* Barra inferior (celular)                                          */
+/* ---------------------------------------------------------------- */
+
+.barra-inferior {
+  display: none;
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 40;
+  grid-template-columns: repeat(5, 1fr);
+  align-items: center;
+  gap: 2px;
+  padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--superficie) 94%, transparent);
+  backdrop-filter: blur(14px);
+  border-top: 1px solid var(--borde);
+}
+
+.barra-inferior .tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 7px 2px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  border-radius: 12px;
+  font-size: 0.68rem;
+  font-weight: 650;
+  color: var(--texto-3);
+  min-height: 50px;
+}
+.barra-inferior .tab.activo { color: var(--acento); background: var(--acento-suave); }
+.barra-inferior .tab-icono { font-size: 1.12rem; line-height: 1.1; }
+
+.barra-inferior .tab-central {
+  justify-self: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--acento);
+  color: var(--acento-texto);
+  font-size: 1.7rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--acento) 45%, transparent);
+  margin-top: -18px;
+}
+.barra-inferior .tab-central:disabled { opacity: 0.45; box-shadow: none; }
+
+.barra-rango {
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  padding: 0 26px 12px;
+  background: color-mix(in srgb, var(--fondo) 88%, transparent);
+  backdrop-filter: blur(12px);
+  overflow-x: auto;
+}
+.barra-rango .segmentado { min-width: max-content; }
+
+@media (max-width: 560px) {
+  .mov-concepto {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .movimiento { align-items: flex-start; gap: 10px; padding: 11px 12px; }
+  .mov-monto { font-size: 0.9rem; }
+  .caja-acceso { padding: 22px 16px; }
+}
+
+/* Se re-declara al final: la definicion base de .barra-inferior aparece
+   despues del media query general y ganaba por orden de cascada. */
+@media (max-width: 860px) {
+  .barra-inferior { display: grid; }
 }
