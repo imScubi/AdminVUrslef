@@ -8,6 +8,7 @@ import type { TipoMovimiento } from './tipos'
 import { SelectorRango } from './componentes/SelectorRango'
 import { FormMovimiento } from './componentes/FormMovimiento'
 import { FormOrigen } from './componentes/FormOrigen'
+import { AvatarOrigen } from './componentes/AvatarOrigen'
 import { EstadoNube } from './componentes/EstadoNube'
 import { Acceso, NuevaClave } from './vistas/Acceso'
 import { FormPedido } from './componentes/FormPedido'
@@ -198,11 +199,11 @@ function Aplicacion() {
                   }`}
                   onClick={() => ir({ tipo: 'origen', id: o.id })}
                 >
-                  <i className="punto" style={{ background: o.color }} />
+                  <AvatarOrigen origen={o} tamano={20} />
                   <span
                     style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                   >
-                    {o.emoji} {o.nombre}
+                    {o.nombre}
                   </span>
                   <span className="chip-origen-saldo">{dineroCorto(saldos.get(o.id) ?? 0)}</span>
                 </button>

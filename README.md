@@ -69,8 +69,13 @@ Cada abono genera un **recibo** con folio consecutivo, el logo del negocio, los 
 el desglose (total, abonado antes, este abono, saldo) y cómo te pagaron. Se descarga como imagen
 para mandársela al cliente. También hay un **estado de cuenta** con todos los abonos del pedido.
 
-El logo y el contacto que salen en el recibo se configuran al editar cada origen. El logo se
-reduce a 320px antes de guardarse, para que sincronizar no cargue una foto de cámara completa.
+Cada negocio tiene su propio logo y contacto, y salen impresos en sus recibos. Se ponen al crear o
+editar el origen, justo debajo del nombre. El logo también se usa como la cara del negocio en las
+tarjetas del panel y en su encabezado; mientras no haya logo se usa el emoji. Si abres un recibo de
+un negocio sin logo, el propio recibo te ofrece subirlo y se redibuja al instante.
+
+El logo se reduce a 320px antes de guardarse, para que sincronizar no cargue una foto de cámara
+completa.
 
 ---
 

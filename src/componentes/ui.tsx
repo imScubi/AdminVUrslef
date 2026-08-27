@@ -1,4 +1,7 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
+
+/** Pila de modales abiertos: Escape solo debe cerrar el de hasta arriba. */
+const pilaModales: symbol[] = []
 
 /* ---------------------------------------------------------------- */
 
@@ -17,15 +20,21 @@ export function Modal({
   pie?: ReactNode
   children: ReactNode
 }) {
+  const marca = useRef(Symbol('modal'))
+
   useEffect(() => {
+    const propia = marca.current
+    pilaModales.push(propia)
     const alPresionar = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCerrar()
+      if (e.key === 'Escape' && pilaModales[pilaModales.length - 1] === propia) onCerrar()
     }
     document.addEventListener('keydown', alPresionar)
     const previo = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     return () => {
       document.removeEventListener('keydown', alPresionar)
+      const i = pilaModales.indexOf(propia)
+      if (i >= 0) pilaModales.splice(i, 1)
       document.body.style.overflow = previo
     }
   }, [onCerrar])

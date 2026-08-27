@@ -4,6 +4,7 @@ import { ETIQUETA_METODO, ETIQUETA_TIPO_PEDIDO } from '../tipos'
 import { estadoDeCuenta } from '../lib/calculos'
 import { dinero } from '../lib/formato'
 import { fechaLegible } from '../lib/fechas'
+import { FormOrigen } from './FormOrigen'
 import { Modal } from './ui'
 
 const ANCHO = 840
@@ -313,6 +314,7 @@ export function Recibo({ pedido, origen, movimientos, abono, onCerrar }: Props) 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [listo, setListo] = useState(false)
   const [aviso, setAviso] = useState<string | null>(null)
+  const [poniendoLogo, setPoniendoLogo] = useState(false)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -401,12 +403,33 @@ export function Recibo({ pedido, origen, movimientos, abono, onCerrar }: Props) 
       <div className="lienzo-recibo">
         <canvas ref={canvasRef} />
       </div>
+
+      {!origen.logo && (
+        <div className="alerta aviso">
+          <span className="alerta-icono">🖼️</span>
+          <div style={{ flex: 1 }}>
+            <div className="alerta-titulo">Ponle el logo de tu negocio</div>
+            <div className="alerta-detalle">
+              Sale arriba del recibo, junto al nombre. El recibo se actualiza en cuanto lo subas.
+            </div>
+            <button
+              className="btn chico"
+              style={{ marginTop: 8 }}
+              onClick={() => setPoniendoLogo(true)}
+            >
+              Subir logo
+            </button>
+          </div>
+        </div>
+      )}
       {aviso && (
         <div className="alerta bien">
           <span className="alerta-icono">✅</span>
           <div className="alerta-titulo">{aviso}</div>
         </div>
       )}
+
+      {poniendoLogo && <FormOrigen origen={origen} onCerrar={() => setPoniendoLogo(false)} />}
     </Modal>
   )
 }

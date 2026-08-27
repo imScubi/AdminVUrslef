@@ -144,7 +144,60 @@ export function FormOrigen({
       </div>
 
       <div className="campo">
+        <label>Logo y datos del recibo</label>
+        <span className="ayuda">
+          Esto es lo que sale impreso cuando le das un recibo a un cliente.
+        </span>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 4 }}>
+          <div className="caja-logo">
+            {logo ? <img src={logo} alt="Logo del negocio" /> : <span>Sin logo</span>}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <button className="btn chico" onClick={() => archivoRef.current?.click()}>
+              {logo ? 'Cambiar logo' : 'Subir logo'}
+            </button>
+            {logo && (
+              <button className="btn chico fantasma" onClick={() => setLogo('')}>
+                Quitar
+              </button>
+            )}
+          </div>
+          <input
+            ref={archivoRef}
+            type="file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={async (e) => {
+              const archivo = e.target.files?.[0]
+              e.target.value = ''
+              if (!archivo) return
+              try {
+                setLogo(await encogerLogo(archivo))
+                setError(null)
+              } catch (problema) {
+                setError(problema instanceof Error ? problema.message : 'No se pudo usar la imagen.')
+              }
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="campo">
+        <label htmlFor="or-contacto">Contacto para el recibo (opcional)</label>
+        <input
+          id="or-contacto"
+          type="text"
+          placeholder="Tel. 55 1234 5678 · @minegocio"
+          value={contacto}
+          onChange={(e) => setContacto(e.target.value)}
+        />
+      </div>
+
+      <div className="campo">
         <label>Icono</label>
+        <span className="ayuda">
+          {logo ? 'Con logo puesto, el icono ya no se usa.' : 'Se usa mientras no subas un logo.'}
+        </span>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
           {EMOJIS.map((e) => (
             <button
@@ -222,56 +275,6 @@ export function FormOrigen({
             <span className="ayuda">Se registra como aporte y sirve para medir el ROI.</span>
           </div>
         )}
-      </div>
-
-      <div className="campo">
-        <label>Logo y datos del recibo</label>
-        <span className="ayuda">
-          Esto es lo que sale impreso cuando le das un recibo a un cliente.
-        </span>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 4 }}>
-          <div className="caja-logo">
-            {logo ? <img src={logo} alt="Logo del negocio" /> : <span>Sin logo</span>}
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <button className="btn chico" onClick={() => archivoRef.current?.click()}>
-              {logo ? 'Cambiar logo' : 'Subir logo'}
-            </button>
-            {logo && (
-              <button className="btn chico fantasma" onClick={() => setLogo('')}>
-                Quitar
-              </button>
-            )}
-          </div>
-          <input
-            ref={archivoRef}
-            type="file"
-            accept="image/*"
-            style={{ display: 'none' }}
-            onChange={async (e) => {
-              const archivo = e.target.files?.[0]
-              e.target.value = ''
-              if (!archivo) return
-              try {
-                setLogo(await encogerLogo(archivo))
-                setError(null)
-              } catch (problema) {
-                setError(problema instanceof Error ? problema.message : 'No se pudo usar la imagen.')
-              }
-            }}
-          />
-        </div>
-      </div>
-
-      <div className="campo">
-        <label htmlFor="or-contacto">Contacto para el recibo (opcional)</label>
-        <input
-          id="or-contacto"
-          type="text"
-          placeholder="Tel. 55 1234 5678 · @minegocio"
-          value={contacto}
-          onChange={(e) => setContacto(e.target.value)}
-        />
       </div>
 
       <div className="campo">

@@ -14,6 +14,7 @@ import { ETIQUETA_TIPO_ORIGEN, type TipoMovimiento } from '../tipos'
 import { GraficaMensual, ListaCategorias } from '../componentes/graficas'
 import { ListaMovimientos } from '../componentes/ListaMovimientos'
 import { Confirmar, Metrica, Vacio } from '../componentes/ui'
+import { AvatarOrigen } from '../componentes/AvatarOrigen'
 import { FormOrigen } from '../componentes/FormOrigen'
 
 const FILTROS: Array<{ id: TipoMovimiento | 'todos'; etiqueta: string }> = [
@@ -91,9 +92,7 @@ export function DetalleOrigen({
   return (
     <>
       <div className="cabecera-origen" style={{ ['--color-origen' as string]: origen.color }}>
-        <div className="avatar-origen" style={{ background: `${origen.color}22` }}>
-          {origen.emoji}
-        </div>
+        <AvatarOrigen origen={origen} tamano={52} redondeo={15} />
         <div style={{ minWidth: 0 }}>
           <h1>{origen.nombre}</h1>
           <div className="mini tenue" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>

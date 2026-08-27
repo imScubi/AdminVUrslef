@@ -1,6 +1,7 @@
 import type { FichaOrigen } from '../lib/calculos'
 import { dinero, dineroCorto, porcentaje } from '../lib/formato'
 import { ETIQUETA_TIPO_ORIGEN } from '../tipos'
+import { AvatarOrigen } from './AvatarOrigen'
 import { MiniSpark } from './graficas'
 import { BarraProgreso } from './ui'
 
@@ -24,7 +25,7 @@ export function TarjetaOrigen({
       <div className="tarjeta-origen-cinta" style={{ background: origen.color }} />
       <div className="tarjeta-origen-cuerpo">
         <div className="tarjeta-origen-cab">
-          <span style={{ fontSize: '1.25rem' }}>{origen.emoji}</span>
+          <AvatarOrigen origen={origen} tamano={34} />
           <div style={{ minWidth: 0 }}>
             <div className="tarjeta-origen-nombre">{origen.nombre}</div>
             <div className="mini tenue-2">{ETIQUETA_TIPO_ORIGEN[origen.tipo]}</div>
