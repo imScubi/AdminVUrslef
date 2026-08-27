@@ -88,8 +88,38 @@ export interface Movimiento extends Sellado {
   metodo?: MetodoPago
   /** Folio consecutivo del recibo dentro del origen. */
   folio?: number
+  /** Solo gastos de mercancia: en que se repartio el dinero de esa compra. */
+  articulos?: Articulo[]
   nota?: string
   creadoEn: string
+}
+
+/**
+ * Un producto concreto dentro de una compra de mercancia. Si gastaste $2,400
+ * en un lote, aqui dices cuanto de ese dinero fue a cada cosa y cuantas
+ * unidades trajiste, para saber despues que te queda y a que costo.
+ */
+export interface Articulo {
+  id: string
+  nombre: string
+  cantidad: number
+  costoUnitario: number
+  /** A cuanto esperas venderlo, por unidad. */
+  precio?: number
+}
+
+/**
+ * Un renglon de lo que se lleva un pedido. El nombre y el costo se copian al
+ * momento de venderlo: si despues corriges la compra original, el recibo que
+ * ya le diste al cliente y el margen de esa venta no cambian solos.
+ */
+export interface LineaPedido {
+  /** Articulo del inventario del que salio, si vino de ahi. */
+  articuloId?: string
+  nombre: string
+  cantidad: number
+  precioUnitario: number
+  costoUnitario: number
 }
 
 export interface Categoria extends Sellado {
@@ -130,6 +160,8 @@ export interface Pedido extends Sellado {
   fecha: string
   estado: EstadoPedido
   notas: string
+  /** Productos que se lleva. Si esta vacio, vale el texto de `concepto`. */
+  lineas?: LineaPedido[]
   creadoEn: string
 }
 

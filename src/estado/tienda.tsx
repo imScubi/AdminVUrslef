@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react'
 import type { BaseDatos, Categoria, MetodoPago, Movimiento, Origen, Pedido } from '../tipos'
-import { abonosDe, siguienteFolio } from '../lib/calculos'
+import { abonosDe, costoDeAbono, siguienteFolio } from '../lib/calculos'
 import {
   baseVacia,
   cargar,
@@ -447,12 +447,31 @@ export function ProveedorTienda({ children }: { children: ReactNode }) {
 
   const editarPedido = useCallback(
     (id: string, cambios: Partial<Pedido>) => {
-      cambiar((prev) => ({
-        ...prev,
-        pedidos: prev.pedidos.map((p) =>
-          p.id === id ? { ...p, ...cambios, actualizadoEn: ahora() } : p,
-        ),
-      }))
+      const sello = ahora()
+      cambiar((prev) => {
+        const anterior = prev.pedidos.find((p) => p.id === id)
+        if (!anterior) return prev
+        const actualizado: Pedido = { ...anterior, ...cambios, actualizadoEn: sello }
+
+        // Si cambio el total o los productos, el costo repartido a cada abono
+        // ya no corresponde: se vuelve a repartir.
+        const cambioElCosto =
+          actualizado.total !== anterior.total || cambios.lineas !== undefined
+        const movimientos = cambioElCosto
+          ? prev.movimientos.map((m) => {
+              if (m.pedidoId !== id || m.tipo !== 'venta') return m
+              const costo = costoDeAbono(actualizado, m.monto)
+              if (costo === m.costo) return m
+              return { ...m, costo, actualizadoEn: sello }
+            })
+          : prev.movimientos
+
+        return {
+          ...prev,
+          movimientos,
+          pedidos: prev.pedidos.map((p) => (p.id === id ? actualizado : p)),
+        }
+      })
     },
     [cambiar],
   )
@@ -489,6 +508,9 @@ export function ProveedorTienda({ children }: { children: ReactNode }) {
         fecha: datos.fecha,
         monto: datos.monto,
         concepto: pedido.concepto.trim() || pedido.cliente.trim() || 'Pedido',
+        // El costo viaja con el abono para que la mercancia vendida salga del
+        // inventario y el margen de esa venta sea real.
+        costo: costoDeAbono(pedido, datos.monto),
         nota: datos.nota?.trim() || undefined,
         pedidoId: pedido.id,
         metodo: datos.metodo,

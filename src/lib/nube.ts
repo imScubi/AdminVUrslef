@@ -1,7 +1,9 @@
 import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js'
 import type {
+  Articulo,
   BaseDatos,
   Categoria,
+  LineaPedido,
   EstadoPedido,
   MetodoPago,
   Movimiento,
@@ -80,6 +82,7 @@ interface FilaMovimiento {
   pedido_id: string | null
   metodo: string | null
   folio: number | null
+  articulos: Articulo[] | null
   creado_en: string
   actualizado_en: string
   borrado: boolean
@@ -97,6 +100,7 @@ interface FilaPedido {
   fecha: string
   estado: string
   notas: string
+  lineas: LineaPedido[] | null
   creado_en: string
   actualizado_en: string
   borrado: boolean
@@ -166,6 +170,7 @@ function aFilaMovimiento(m: Movimiento, usuarioId: string): FilaMovimiento {
     pedido_id: m.pedidoId ?? null,
     metodo: m.metodo ?? null,
     folio: m.folio ?? null,
+    articulos: m.articulos?.length ? m.articulos : null,
     creado_en: m.creadoEn,
     actualizado_en: m.actualizadoEn,
     borrado: Boolean(m.borrado),
@@ -191,6 +196,7 @@ function deFilaMovimiento(f: FilaMovimiento): Movimiento {
     pedidoId: f.pedido_id ?? undefined,
     metodo: (f.metodo as MetodoPago) ?? undefined,
     folio: f.folio ?? undefined,
+    articulos: f.articulos ?? undefined,
     creadoEn: f.creado_en,
     actualizadoEn: f.actualizado_en,
     borrado: Boolean(f.borrado),
@@ -210,6 +216,7 @@ function aFilaPedido(p: Pedido, usuarioId: string): FilaPedido {
     fecha: p.fecha,
     estado: p.estado,
     notas: p.notas,
+    lineas: p.lineas?.length ? p.lineas : null,
     creado_en: p.creadoEn,
     actualizado_en: p.actualizadoEn,
     borrado: Boolean(p.borrado),
@@ -228,6 +235,7 @@ function deFilaPedido(f: FilaPedido): Pedido {
     fecha: f.fecha,
     estado: f.estado as EstadoPedido,
     notas: f.notas ?? '',
+    lineas: f.lineas ?? undefined,
     creadoEn: f.creado_en,
     actualizadoEn: f.actualizado_en,
     borrado: Boolean(f.borrado),

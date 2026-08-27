@@ -4,6 +4,7 @@ import {
   fichaDeOrigen,
   filtrarRango,
   gastosPorCategoria,
+  inventarioDe,
   movimientosDe,
   serieMensual,
   type Rango,
@@ -53,6 +54,10 @@ export function DetalleOrigen({
   const serie = useMemo(
     () => (origen ? serieMensual(propios, db.categorias, 12, origen.id) : []),
     [propios, db.categorias, origen],
+  )
+  const existencias = useMemo(
+    () => (origen ? inventarioDe(db, origen.id).filter((e) => e.disponibles > 0) : []),
+    [db, origen],
   )
   const gastosCat = useMemo(
     () => gastosPorCategoria(filtrarRango(propios, rango), db.categorias, 'gasto'),
@@ -291,6 +296,49 @@ export function DetalleOrigen({
           <GraficaMensual datos={serie} alto={250} />
         </div>
       </div>
+
+      {existencias.length > 0 && (
+        <div className="tarjeta">
+          <div className="tarjeta-cab">
+            <h2>Que tienes en existencia</h2>
+            <span className="mini tenue">
+              {dinero(
+                existencias.reduce((s, e) => s + e.valorDisponible, 0),
+                0,
+              )}{' '}
+              a costo
+            </span>
+          </div>
+          <div>
+            {existencias.map((e) => (
+              <div className="movimiento" key={e.articulo.id}>
+                <div
+                  className="mov-icono"
+                  style={{ background: 'var(--azul-suave)', color: 'var(--azul)' }}
+                >
+                  📦
+                </div>
+                <div className="mov-cuerpo">
+                  <div className="mov-concepto">{e.articulo.nombre}</div>
+                  <div className="mov-meta">
+                    <span>
+                      quedan {e.disponibles} de {e.comprados}
+                    </span>
+                    <span>costo {dinero(e.articulo.costoUnitario, 0)} c/u</span>
+                    {e.articulo.precio ? <span className="pos">vende {dinero(e.articulo.precio, 0)}</span> : null}
+                  </div>
+                </div>
+                <div className="mov-monto">
+                  <div>{dinero(e.valorDisponible, 0)}</div>
+                  {e.valorEsperado !== null && (
+                    <div className="mini tenue-2">valen {dinero(e.valorEsperado, 0)}</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="rejilla anchas">
         <div className="tarjeta">

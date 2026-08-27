@@ -185,8 +185,29 @@ export async function dibujarRecibo(
   }
   y += 12
 
-  // --- Concepto ---
-  if (lineasConcepto.length) {
+  // --- Que se lleva ---
+  if (pedido.lineas?.length) {
+    etiqueta(ETIQUETA_TIPO_PEDIDO[pedido.tipo])
+    for (const l of pedido.lineas) {
+      ctx.textAlign = 'left'
+      ctx.fillStyle = tinta
+      ctx.font = '500 22px system-ui, -apple-system, "Segoe UI", sans-serif'
+      ctx.fillText(`${l.cantidad} × ${l.nombre}`, MARGEN, y)
+      ctx.textAlign = 'right'
+      ctx.font = '500 22px system-ui, -apple-system, "Segoe UI", sans-serif'
+      ctx.fillText(dinero(l.cantidad * l.precioUnitario), ANCHO - MARGEN, y)
+      y += 26
+      if (l.cantidad > 1) {
+        ctx.textAlign = 'left'
+        ctx.fillStyle = suave
+        ctx.font = '400 18px system-ui, -apple-system, "Segoe UI", sans-serif'
+        ctx.fillText(`${dinero(l.precioUnitario)} c/u`, MARGEN, y)
+        y += 24
+      }
+      y += 8
+    }
+    y += 8
+  } else if (lineasConcepto.length) {
     etiqueta(ETIQUETA_TIPO_PEDIDO[pedido.tipo])
     ctx.fillStyle = tinta
     ctx.font = '400 22px system-ui, -apple-system, "Segoe UI", sans-serif'

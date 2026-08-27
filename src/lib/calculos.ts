@@ -1,4 +1,4 @@
-import type { BaseDatos, Categoria, Movimiento, Origen, Pedido } from '../tipos'
+import type { Articulo, BaseDatos, Categoria, Movimiento, Origen, Pedido } from '../tipos'
 import { diasEntre, hoy, inicioDeMes, mesDe, mesesEntre, sumarMeses } from './fechas'
 
 export interface Rango {
@@ -591,4 +591,91 @@ export function siguienteFolio(db: BaseDatos, origenId: string): number {
     if (m.folio > mayor) mayor = m.folio
   }
   return mayor + 1
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Inventario por producto                                             */
+/* ------------------------------------------------------------------ */
+
+export interface Existencia {
+  articulo: Articulo
+  origenId: string
+  /** Movimiento de compra del que salio. */
+  compraId: string
+  fechaCompra: string
+  comprados: number
+  vendidos: number
+  disponibles: number
+  /** Lo que vale a costo lo que aun te queda. */
+  valorDisponible: number
+  /** Lo que esperas recibir si vendes lo que queda al precio previsto. */
+  valorEsperado: number | null
+}
+
+/**
+ * Junta el desglose de todas las compras de mercancia y le resta lo que ya
+ * salio en pedidos. Los pedidos cancelados no descuentan: esa mercancia
+ * regresa al estante.
+ */
+export function inventarioDe(db: BaseDatos, origenId?: string): Existencia[] {
+  const vendidoPorArticulo = new Map<string, number>()
+  for (const pedido of db.pedidos) {
+    if (pedido.estado === 'cancelado') continue
+    for (const linea of pedido.lineas ?? []) {
+      if (!linea.articuloId) continue
+      vendidoPorArticulo.set(
+        linea.articuloId,
+        (vendidoPorArticulo.get(linea.articuloId) ?? 0) + linea.cantidad,
+      )
+    }
+  }
+
+  const salida: Existencia[] = []
+  for (const compra of db.movimientos) {
+    if (compra.tipo !== 'gasto' || !compra.articulos?.length) continue
+    if (origenId && compra.origenId !== origenId) continue
+    for (const articulo of compra.articulos) {
+      const vendidos = vendidoPorArticulo.get(articulo.id) ?? 0
+      const disponibles = Math.max(0, articulo.cantidad - vendidos)
+      salida.push({
+        articulo,
+        origenId: compra.origenId,
+        compraId: compra.id,
+        fechaCompra: compra.fecha,
+        comprados: articulo.cantidad,
+        vendidos,
+        disponibles,
+        valorDisponible: disponibles * articulo.costoUnitario,
+        valorEsperado: articulo.precio ? disponibles * articulo.precio : null,
+      })
+    }
+  }
+  return salida.sort((a, b) =>
+    a.fechaCompra === b.fechaCompra
+      ? a.articulo.nombre.localeCompare(b.articulo.nombre)
+      : b.fechaCompra.localeCompare(a.fechaCompra),
+  )
+}
+
+/** Lo que a ti te costo la mercancia que se lleva un pedido. */
+export function costoDePedido(pedido: Pedido): number {
+  return (pedido.lineas ?? []).reduce((s, l) => s + l.cantidad * l.costoUnitario, 0)
+}
+
+/** Suma de los renglones, para proponer el total del pedido. */
+export function totalDeLineas(pedido: Pick<Pedido, 'lineas'>): number {
+  return (pedido.lineas ?? []).reduce((s, l) => s + l.cantidad * l.precioUnitario, 0)
+}
+
+/**
+ * Cuanto costo repartir a un abono. El costo se reconoce en proporcion a lo
+ * cobrado: si llevas la mitad del pedido pagado, se reconoce la mitad del
+ * costo. Asi el margen del mes no se dispara ni se hunde por el momento en
+ * que el cliente termino de pagar.
+ */
+export function costoDeAbono(pedido: Pedido, montoAbono: number): number | undefined {
+  const costo = costoDePedido(pedido)
+  if (costo <= 0 || pedido.total <= 0) return undefined
+  return Math.round(costo * (montoAbono / pedido.total) * 100) / 100
 }

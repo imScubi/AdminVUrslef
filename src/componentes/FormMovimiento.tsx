@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import type { Movimiento, TipoMovimiento } from '../tipos'
+import type { Articulo, Movimiento, TipoMovimiento } from '../tipos'
+import { nuevoId } from '../lib/id'
 import { useTienda } from '../estado/tienda'
 import { calcular, movimientosDe } from '../lib/calculos'
 import { dinero, aNumero, porcentaje } from '../lib/formato'
@@ -69,6 +70,7 @@ export function FormMovimiento({ movimiento, origenInicial, tipoInicial, onCerra
   const [retorno, setRetorno] = useState(
     movimiento?.retornoEsperado != null ? String(movimiento.retornoEsperado) : '',
   )
+  const [articulos, setArticulos] = useState<Articulo[]>(movimiento?.articulos ?? [])
   const [concepto, setConcepto] = useState(movimiento?.concepto ?? '')
   const [categoria, setCategoria] = useState(movimiento?.categoria ?? '')
   const [nota, setNota] = useState(movimiento?.nota ?? '')
@@ -87,9 +89,17 @@ export function FormMovimiento({ movimiento, origenInicial, tipoInicial, onCerra
 
   const montoNum = aNumero(monto)
   const costoNum = aNumero(costo)
-  const retornoNum = aNumero(retorno)
+  // Con desglose manda el desglose: el retorno sale de sumar los productos.
+  const costoAsignado = articulos.reduce((s, a) => s + a.cantidad * a.costoUnitario, 0)
+  const retornoDeArticulos = articulos.reduce((s, a) => s + a.cantidad * (a.precio ?? 0), 0)
+  const hayDesglose = articulos.length > 0
+  const retornoNum = hayDesglose ? retornoDeArticulos : aNumero(retorno)
   const gananciaEsperada = retornoNum - montoNum
   const margenEsperado = retornoNum > 0 ? (gananciaEsperada / retornoNum) * 100 : null
+
+  function cambiarArticulo(id: string, cambios: Partial<Articulo>) {
+    setArticulos((prev) => prev.map((a) => (a.id === id ? { ...a, ...cambios } : a)))
+  }
   const gananciaPreview = montoNum - costoNum
   const margenPreview = montoNum > 0 ? (gananciaPreview / montoNum) * 100 : null
   const deltaAjuste = aNumero(saldoReal) - cajaActual
@@ -100,6 +110,7 @@ export function FormMovimiento({ movimiento, origenInicial, tipoInicial, onCerra
     setMonto('')
     setCosto('')
     setRetorno('')
+    setArticulos([])
     setConcepto('')
     setNota('')
     setSaldoReal('')
@@ -137,7 +148,13 @@ export function FormMovimiento({ movimiento, origenInicial, tipoInicial, onCerra
       monto: tipo === 'ajuste' ? deltaAjuste : montoNum,
       costo: tipo === 'venta' && costo.trim() !== '' ? costoNum : undefined,
       retornoEsperado:
-        tipo === 'gasto' && catInventario && retorno.trim() !== '' ? retornoNum : undefined,
+        tipo === 'gasto' && catInventario && retornoNum > 0 ? retornoNum : undefined,
+      articulos:
+        tipo === 'gasto' && catInventario && articulos.length
+          ? articulos
+              .filter((a) => a.nombre.trim() && a.cantidad > 0)
+              .map((a) => ({ ...a, nombre: a.nombre.trim() }))
+          : undefined,
       concepto: concepto.trim() || textoPorDefecto(tipo),
       categoria: tipo === 'gasto' || tipo === 'retiro' ? categoria || undefined : undefined,
       nota: nota.trim() || undefined,
@@ -360,25 +377,116 @@ export function FormMovimiento({ movimiento, origenInicial, tipoInicial, onCerra
 
       {tipo === 'gasto' && catInventario && (
         <>
-          <div className="campo">
-            <label htmlFor="mov-retorno">¿En cuanto esperas venderlo? (opcional)</label>
-            <div className="entrada-monto">
-              <input
-                id="mov-retorno"
-                type="text"
-                inputMode="decimal"
-                placeholder="0.00"
-                value={retorno}
-                onChange={(e) => setRetorno(e.target.value)}
-              />
+          {!hayDesglose && (
+            <div className="campo">
+              <label htmlFor="mov-retorno">¿En cuanto esperas venderlo? (opcional)</label>
+              <div className="entrada-monto">
+                <input
+                  id="mov-retorno"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  value={retorno}
+                  onChange={(e) => setRetorno(e.target.value)}
+                />
+              </div>
+              <span className="ayuda">
+                Con esto la app puede decirte cuanta ganancia sigue guardada en la mercancia que aun
+                no vendes, y avisarte si terminas vendiendo mas barato de lo que planeabas.
+              </span>
             </div>
+          )}
+
+          <div className="campo">
+            <label>Desglose de la compra (opcional)</label>
             <span className="ayuda">
-              Con esto la app puede decirte cuanta ganancia sigue guardada en la mercancia que aun
-              no vendes, y avisarte si terminas vendiendo mas barato de lo que planeabas.
+              Di en que se te fue el dinero. Con esto sabes que te queda en existencia, y al hacer
+              un pedido puedes elegir estos productos: el recibo sale con su detalle y la mercancia
+              vendida se descuenta sola.
             </span>
+
+            {articulos.map((a) => (
+              <div className="articulo-fila" key={a.id}>
+                <div className="articulo-cab">
+                  <input
+                    type="text"
+                    placeholder="Nombre del producto"
+                    value={a.nombre}
+                    onChange={(e) => cambiarArticulo(a.id, { nombre: e.target.value })}
+                  />
+                  <button
+                    className="btn chico fantasma"
+                    aria-label="Quitar producto"
+                    onClick={() => setArticulos((prev) => prev.filter((x) => x.id !== a.id))}
+                  >
+                    🗑️
+                  </button>
+                </div>
+                <div className="articulo-datos">
+                  <label>
+                    <span>Piezas</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={a.cantidad || ''}
+                      placeholder="1"
+                      onChange={(e) => cambiarArticulo(a.id, { cantidad: aNumero(e.target.value) })}
+                    />
+                  </label>
+                  <label>
+                    <span>Costo c/u</span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={a.costoUnitario || ''}
+                      placeholder="0"
+                      onChange={(e) =>
+                        cambiarArticulo(a.id, { costoUnitario: aNumero(e.target.value) })
+                      }
+                    />
+                  </label>
+                  <label>
+                    <span>Venta c/u</span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={a.precio || ''}
+                      placeholder="0"
+                      onChange={(e) => cambiarArticulo(a.id, { precio: aNumero(e.target.value) })}
+                    />
+                  </label>
+                </div>
+              </div>
+            ))}
+
+            <button
+              className="btn chico"
+              style={{ alignSelf: 'flex-start' }}
+              onClick={() =>
+                setArticulos((prev) => [
+                  ...prev,
+                  { id: nuevoId(), nombre: '', cantidad: 1, costoUnitario: 0 },
+                ])
+              }
+            >
+              + Agregar producto
+            </button>
+
+            {hayDesglose && (
+              <div className="aviso-caja">
+                Asignaste <b>{dinero(costoAsignado)}</b> de {dinero(montoNum)}
+                {Math.abs(montoNum - costoAsignado) > 0.005 && (
+                  <span className={montoNum - costoAsignado > 0 ? 'tenue' : 'neg'}>
+                    {' '}
+                    · {montoNum - costoAsignado > 0 ? 'faltan por repartir ' : 'te pasaste por '}
+                    {dinero(Math.abs(montoNum - costoAsignado))}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
-          {montoNum > 0 && retorno.trim() !== '' && (
+          {montoNum > 0 && retornoNum > 0 && (
             <div className="aviso-caja">
               Si se vende completo ganas{' '}
               <b className={gananciaEsperada >= 0 ? 'pos' : 'neg'}>{dinero(gananciaEsperada)}</b> ·

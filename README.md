@@ -57,7 +57,8 @@ Con estos seis se describe cualquier cosa que le pase al dinero:
 
 Para lo que se paga en partes: separaciones, encargos y ventas con anticipo.
 
-Un **pedido** guarda a quién le vendes, su teléfono, qué lleva y el total acordado. Cada **abono**
+Un **pedido** guarda a quién le vendes, su teléfono, qué lleva (texto libre o productos elegidos
+del inventario) y el total acordado. Cada **abono**
 que registras se convierte automáticamente en una entrada de dinero en la caja de ese negocio: no
 capturas nada dos veces y la caja siempre refleja lo que de verdad te pagaron.
 
@@ -84,6 +85,18 @@ retiros − traspasos que salen, ± ajustes.
 tratan como pérdida: ese dinero se guarda como inventario. Cuando registras una venta y anotas su
 costo, el inventario baja. Por eso puedes tener poca caja y aun así ir ganando — el dinero está en
 producto, no perdido. La app te lo dice explícitamente cuando pasa.
+
+**Desglose de la compra.** Al registrar una compra de mercancía puedes decir en qué se te fue el
+dinero: si gastaste $2,400, cuántas piezas de cada producto trajiste y a qué costo salió cada una.
+Eso arma un **inventario por producto** — cuántas te quedan y a qué costo — que puedes ver en el
+detalle del negocio. Al crear un pedido eliges de ese inventario: el recibo sale con el detalle de
+lo que se lleva, la mercancía se descuenta sola y el pedido carga su costo real, así tu "mercancía
+sin vender" sí baja cuando vendes. Los pedidos cancelados devuelven la mercancía al estante.
+
+El costo se reconoce **en proporción a lo cobrado**: si llevas la mitad del pedido pagado, se
+reconoce la mitad del costo. Así el margen del mes no se dispara ni se hunde por el momento en que
+el cliente terminó de pagar. Si corriges el total o los productos de un pedido, el costo repartido
+a cada abono se recalcula solo.
 
 **Retorno esperado.** Al registrar una compra de mercancía puedes anotar en cuánto esperas
 venderla. De ahí sale un factor (compraste $7,000 esperando $12,000 → cada peso de mercancía vale
@@ -187,3 +200,9 @@ Tablas `av_origenes`, `av_movimientos`, `av_categorias`, `av_pedidos` y `av_conf
 
 Los abonos no tienen tabla propia: son filas de `av_movimientos` con `pedido_id`, `metodo` y
 `folio`. Así el dinero tiene una sola fuente de verdad.
+
+El desglose de una compra vive como `jsonb` en `av_movimientos.articulos`, y lo que se lleva un
+pedido en `av_pedidos.lineas`. Son pocos renglones, siempre se leen junto con su fila, y así no
+hacen falta más tablas ni más políticas de RLS. En las líneas del pedido el nombre y el costo se
+copian al momento de vender: si después corriges la compra original, el recibo que ya entregaste y
+el margen de esa venta no cambian solos.

@@ -126,6 +126,17 @@ export function normalizar(entrada: unknown): BaseDatos {
         pedidoId: m.pedidoId,
         metodo: m.metodo,
         folio: m.folio === undefined || m.folio === null ? undefined : Number(m.folio),
+        articulos: Array.isArray(m.articulos)
+          ? m.articulos.map((a) => ({
+              id: a.id ?? nuevoId(),
+              nombre: a.nombre ?? '',
+              cantidad: Number(a.cantidad) || 0,
+              costoUnitario: Number(a.costoUnitario) || 0,
+              ...(a.precio === undefined || a.precio === null
+                ? {}
+                : { precio: Number(a.precio) || 0 }),
+            }))
+          : undefined,
         creadoEn: m.creadoEn ?? ahora,
         actualizadoEn: m.actualizadoEn ?? ahora,
         ...(m.borrado ? { borrado: true } : {}),
@@ -143,6 +154,15 @@ export function normalizar(entrada: unknown): BaseDatos {
         fecha: p.fecha ?? ahora.slice(0, 10),
         estado: p.estado ?? 'abierto',
         notas: p.notas ?? '',
+        lineas: Array.isArray(p.lineas)
+          ? p.lineas.map((l) => ({
+              articuloId: l.articuloId,
+              nombre: l.nombre ?? '',
+              cantidad: Number(l.cantidad) || 0,
+              precioUnitario: Number(l.precioUnitario) || 0,
+              costoUnitario: Number(l.costoUnitario) || 0,
+            }))
+          : undefined,
         creadoEn: p.creadoEn ?? ahora,
         actualizadoEn: p.actualizadoEn ?? ahora,
         ...(p.borrado ? { borrado: true } : {}),

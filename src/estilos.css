@@ -877,3 +877,56 @@ input[type='color']::-moz-color-swatch { border: 0; border-radius: 7px; }
 .banda-pedidos:hover { border-color: var(--acento); }
 .banda-pedidos-icono { font-size: 1.3rem; }
 .banda-pedidos-flecha { margin-left: auto; font-size: 1.5rem; color: var(--texto-3); }
+
+/* ---------------------------------------------------------------- */
+/* Desglose de mercancia y renglones de pedido                       */
+/* ---------------------------------------------------------------- */
+
+.articulo-fila {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--borde);
+  border-radius: var(--r-md);
+  background: var(--superficie-2);
+}
+.articulo-cab { display: flex; gap: 6px; align-items: center; }
+.articulo-cab input { flex: 1; }
+
+.articulo-datos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.articulo-datos label { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.articulo-datos label > span {
+  font-size: 0.68rem;
+  font-weight: 650;
+  color: var(--texto-3);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.articulo-datos input { padding: 8px 9px; font-size: 0.9rem; }
+.articulo-datos input[readonly] { background: var(--superficie-3); color: var(--texto-2); }
+
+.selector-inventario {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 230px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--borde);
+  border-radius: var(--r-md);
+  background: var(--superficie-2);
+}
+.existencia {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: var(--superficie);
+}
+.existencia:hover { background: var(--acento-suave); }

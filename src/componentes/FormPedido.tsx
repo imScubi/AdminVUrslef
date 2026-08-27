@@ -1,7 +1,8 @@
-import { useState } from 'react'
-import type { EstadoPedido, MetodoPago, Pedido, TipoPedido } from '../tipos'
+import { useMemo, useState } from 'react'
+import type { EstadoPedido, LineaPedido, MetodoPago, Pedido, TipoPedido } from '../tipos'
 import { ETIQUETA_ESTADO_PEDIDO, ETIQUETA_METODO, ETIQUETA_TIPO_PEDIDO } from '../tipos'
 import { useTienda } from '../estado/tienda'
+import { inventarioDe } from '../lib/calculos'
 import { aNumero, dinero } from '../lib/formato'
 import { hoy } from '../lib/fechas'
 import { Modal } from './ui'
@@ -35,12 +36,43 @@ export function FormPedido({
   const [fecha, setFecha] = useState(pedido?.fecha ?? hoy())
   const [estado, setEstado] = useState<EstadoPedido>(pedido?.estado ?? 'abierto')
   const [notas, setNotas] = useState(pedido?.notas ?? '')
+  const [lineas, setLineas] = useState<LineaPedido[]>(pedido?.lineas ?? [])
+  const [eligiendo, setEligiendo] = useState(false)
   const [abonoInicial, setAbonoInicial] = useState('')
   const [metodo, setMetodo] = useState<MetodoPago>('efectivo')
   const [error, setError] = useState<string | null>(null)
 
   const totalNum = aNumero(total)
   const abonoNum = aNumero(abonoInicial)
+  const sumaLineas = lineas.reduce((s, l) => s + l.cantidad * l.precioUnitario, 0)
+  const costoLineas = lineas.reduce((s, l) => s + l.cantidad * l.costoUnitario, 0)
+
+  // Lo que hay en existencia de este negocio, contando lo que este mismo
+  // pedido ya tenia apartado para poder editarlo sin que se vea agotado.
+  const existencias = useMemo(() => {
+    const yaEnEstePedido = new Map<string, number>()
+    for (const l of pedido?.lineas ?? []) {
+      if (l.articuloId) {
+        yaEnEstePedido.set(l.articuloId, (yaEnEstePedido.get(l.articuloId) ?? 0) + l.cantidad)
+      }
+    }
+    return inventarioDe(db, origenId)
+      .map((e) => ({
+        ...e,
+        disponibles: e.disponibles + (yaEnEstePedido.get(e.articulo.id) ?? 0),
+      }))
+      .filter((e) => e.disponibles > 0)
+  }, [db, origenId, pedido])
+
+  function ponerLineas(siguientes: LineaPedido[]) {
+    setLineas(siguientes)
+    const suma = siguientes.reduce((s, l) => s + l.cantidad * l.precioUnitario, 0)
+    if (suma > 0) setTotal(String(Math.round(suma * 100) / 100))
+  }
+
+  function cambiarLinea(indice: number, cambios: Partial<LineaPedido>) {
+    ponerLineas(lineas.map((l, i) => (i === indice ? { ...l, ...cambios } : l)))
+  }
 
   function enviar() {
     if (!origenId) {
@@ -67,6 +99,11 @@ export function FormPedido({
       fecha,
       estado,
       notas: notas.trim(),
+      lineas: lineas.filter((l) => l.nombre.trim() && l.cantidad > 0).length
+        ? lineas
+            .filter((l) => l.nombre.trim() && l.cantidad > 0)
+            .map((l) => ({ ...l, nombre: l.nombre.trim() }))
+        : undefined,
     }
 
     if (pedido) {
@@ -165,6 +202,144 @@ export function FormPedido({
           value={concepto}
           onChange={(e) => setConcepto(e.target.value)}
         />
+      </div>
+
+      <div className="campo">
+        <label>Productos</label>
+        <span className="ayuda">
+          Si los eliges del inventario, el recibo sale con su detalle, la mercancia se descuenta y
+          el pedido se lleva su costo real.
+        </span>
+
+        {lineas.map((l, i) => (
+          <div className="articulo-fila" key={`${l.articuloId ?? 'libre'}-${i}`}>
+            <div className="articulo-cab">
+              <input
+                type="text"
+                placeholder="Producto"
+                value={l.nombre}
+                onChange={(e) => cambiarLinea(i, { nombre: e.target.value })}
+              />
+              <button
+                className="btn chico fantasma"
+                aria-label="Quitar producto"
+                onClick={() => ponerLineas(lineas.filter((_, j) => j !== i))}
+              >
+                🗑️
+              </button>
+            </div>
+            <div className="articulo-datos">
+              <label>
+                <span>Piezas</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={l.cantidad || ''}
+                  onChange={(e) => cambiarLinea(i, { cantidad: aNumero(e.target.value) })}
+                />
+              </label>
+              <label>
+                <span>Precio c/u</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={l.precioUnitario || ''}
+                  onChange={(e) => cambiarLinea(i, { precioUnitario: aNumero(e.target.value) })}
+                />
+              </label>
+              <label>
+                <span>Importe</span>
+                <input
+                  type="text"
+                  value={dinero(l.cantidad * l.precioUnitario, 0)}
+                  readOnly
+                  tabIndex={-1}
+                />
+              </label>
+            </div>
+          </div>
+        ))}
+
+        <div className="fila compacta" style={{ gap: 8 }}>
+          <button
+            className="btn chico"
+            onClick={() => setEligiendo((v) => !v)}
+            disabled={!existencias.length}
+          >
+            {existencias.length
+              ? eligiendo
+                ? 'Cerrar inventario'
+                : `Elegir del inventario (${existencias.length})`
+              : 'Sin mercancia desglosada'}
+          </button>
+          <button
+            className="btn chico fantasma"
+            onClick={() =>
+              ponerLineas([
+                ...lineas,
+                { nombre: '', cantidad: 1, precioUnitario: 0, costoUnitario: 0 },
+              ])
+            }
+          >
+            + Renglon libre
+          </button>
+        </div>
+
+        {eligiendo && (
+          <div className="selector-inventario">
+            {existencias.map((e) => (
+              <button
+                key={e.articulo.id}
+                className="existencia"
+                onClick={() => {
+                  const yaEsta = lineas.findIndex((l) => l.articuloId === e.articulo.id)
+                  if (yaEsta >= 0) {
+                    cambiarLinea(yaEsta, { cantidad: lineas[yaEsta].cantidad + 1 })
+                  } else {
+                    ponerLineas([
+                      ...lineas,
+                      {
+                        articuloId: e.articulo.id,
+                        nombre: e.articulo.nombre,
+                        cantidad: 1,
+                        precioUnitario: e.articulo.precio ?? 0,
+                        costoUnitario: e.articulo.costoUnitario,
+                      },
+                    ])
+                  }
+                }}
+              >
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontWeight: 640, fontSize: '0.88rem' }}>{e.articulo.nombre}</div>
+                  <div className="mini tenue-2">
+                    quedan {e.disponibles} · costo {dinero(e.articulo.costoUnitario, 0)}
+                  </div>
+                </div>
+                <div className="derecha">
+                  <div className="num" style={{ fontWeight: 640 }}>
+                    {e.articulo.precio ? dinero(e.articulo.precio, 0) : '—'}
+                  </div>
+                  <div className="mini tenue-2">agregar</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {lineas.length > 0 && (
+          <div className="aviso-caja">
+            Suman <b>{dinero(sumaLineas)}</b>
+            {costoLineas > 0 && (
+              <>
+                {' '}
+                · te costaron <b>{dinero(costoLineas)}</b> · dejas{' '}
+                <b className={sumaLineas - costoLineas >= 0 ? 'pos' : 'neg'}>
+                  {dinero(sumaLineas - costoLineas)}
+                </b>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="campo">
