@@ -1,0 +1,16 @@
+{
+  "name": "AdminVUrslef",
+  "short_name": "AdminV",
+  "description": "Control de varios origenes de ingreso: ventas, gastos, ganancias y en que se va el dinero.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0c0e13",
+  "theme_color": "#4f46e5",
+  "lang": "es-MX",
+  "icons": [
+    { "src": "./icono-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
